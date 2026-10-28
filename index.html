@@ -1244,6 +1244,124 @@ function saleNums(){const m={};const st=num(S.config.saleStartNo)||1;D.docs.filt
   let r=1;D.docs.filter(d=>d.type==='return').slice().sort((a,b)=>a.createdAt<b.createdAt?-1:1).forEach(d=>m[d.id]='Q'+(r++));return m}
 const SL_COLS=[['date','Sotuv sanasi',true],['cli','Mijoz',true],['sum','Summa',true],['note','Izoh',true],['pay',"To'lov turlari",false],['wh','Ombor',false],['by',"Mas'ul shaxs",false],['st','Holat',false]];
 
+/* ============ Zakazlar: kunlik RASXOD (PDF) faylidan sotuv yaratish ============ */
+function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`))return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Kutubxona yuklanmadi (internet?): '+src));document.head.appendChild(s)})}
+async function pdfRows(file){
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await window.pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;const rows=[];
+  for(let p=1;p<=pdf.numPages;p++){const pg=await pdf.getPage(p);const vp=pg.getViewport({scale:1});const tc=await pg.getTextContent();const items=[];
+    for(const it of tc.items){const s=(it.str||'').trim();if(!s)continue;items.push({x:it.transform[4],y:vp.height-it.transform[5],s})}
+    items.sort((a,b)=>a.y-b.y||a.x-b.x);const lines=[];
+    for(const it of items){const L=lines[lines.length-1];if(L&&Math.abs(L.y-it.y)<3.5)L.items.push(it);else lines.push({y:it.y,items:[it]})}
+    for(const L of lines){L.items.sort((a,b)=>a.x-b.x);rows.push({page:p,y:L.y,items:L.items})}}
+  return rows}
+const zkMoney=s=>num(String(s||'').replace(/[^\d.,-]/g,''));
+function parseRasxod(rows){
+  const col=x=>x<245?0:x<300?1:x<366?2:x<420?3:4;
+  const R={date:'',orders:[],warn:[]};let cur=null,item=null;
+  for(const r of rows){const c=['','','','',''];
+    for(const it of r.items){const k=col(it.x);c[k]=(c[k]?c[k]+' ':'')+it.s}
+    const all=c.join(' ').trim();
+    if(/^RASXOD/i.test(all))continue;
+    const dm=all.match(/^(\d{2})\/(\d{2})\/(\d{4})/);if(dm&&!R.date){R.date=`${dm[3]}-${dm[2]}-${dm[1]}`;continue}
+    if(/^№/.test(c[0])||(/Nomi/.test(c[0])&&/soni/.test(c[1])))continue;
+    if(/^(Zakazlar|Naqd olindi|Qarzga|Jami):/.test(c[4])||/HED Electronix/.test(all)&&/Hed zakaz/.test(all))continue;
+    const m0=c[0].match(/^(\d+)\s+(.+)$/);
+    if(m0&&/^\d+([.,]\d+)?$/.test(c[1])){
+      if(/^\d{1,2}:\d{2}$/.test(c[3])){cur={time:c[3],seller:'',no:'',client:'',phone:'',pay:'debt',total:0,note:'',lines:[],c4:[]};R.orders.push(cur)}
+      if(!cur){R.warn.push('Zakaz sarlavhasiz qator: '+c[0]);continue}
+      item={name:m0[2].trim(),qty:num(c[1]),sum:zkMoney(c[2]),price:0};cur.lines.push(item);
+      if(/^Z-/.test(c[3]))cur.no=c[3];
+      if(c[4])cur.c4.push(c[4]);
+      continue}
+    if(!cur)continue;
+    if(c[0]&&item)item.name+=' '+c[0];
+    if(/dan$/.test(c[2])&&item)item.price=zkMoney(c[2]);
+    if(c[3]){if(/^Z-/.test(c[3]))cur.no=c[3];else if(!/^\d{1,2}:\d{2}$/.test(c[3]))cur.seller=c[3]}
+    if(c[4])cur.c4.push(c[4]);
+  }
+  for(const o of R.orders){const L=o.c4;delete o.c4;const h=L.shift()||'';
+    if(/^naqd/i.test(h)){o.pay='cash';o.total=zkMoney((h.split('·')[1]||''))}
+    else{o.pay='debt';o.client=h.trim();
+      if(L[0]&&/^\+?[\d\s-]{9,}$/.test(L[0]))o.phone=L.shift().replace(/[\s-]/g,'');
+      if(L[0]&&/^\$?[\d.,]+$/.test(L[0].replace(/\s/g,'')))o.total=zkMoney(L.shift())}
+    o.note=L.join(' ').trim();
+    for(const l of o.lines){l.name=l.name.replace(/\s+/g,' ').trim();if(!l.price)l.price=l.qty?r2(l.sum/l.qty):l.sum}
+    const sum=r2(o.lines.reduce((a,l)=>a+l.qty*l.price,0));if(!o.total)o.total=sum;else if(Math.abs(o.total-sum)>0.01)o.sumWarn=sum}
+  return R}
+async function zkImport(){
+  if(!allow('sale'))return;
+  const cbs=list('cashboxes').filter(c=>c.active!==false),whs=list('warehouses');
+  if(!cbs.length||!whs.length){toast("Avval kassa va ombor yarating",true);return}
+  const cb0=(cbs.find(c=>c.currency===base())||cbs[0]).id,wh0=POS.wh&&whs.some(w=>w.id===POS.wh)?POS.wh:whs[0].id;
+  const o=modal(`<h2>Kunlik zakaz faylidan sotuv yaratish</h2><p class="muted">Hed zakaz'dan keladigan kunlik <b>RASXOD</b> PDF faylini tanlang. Har bir zakaz alohida sotuv bo'ladi: <b>naqd</b> — tanlangan kassaga, <b>qarzga</b> — mijoz balansiga yoziladi, ombor kamayadi. Mahsulotlar katalog bilan nomi bo'yicha solishtiriladi: mos kelmaganini ro'yxatdan tanlang (tanlovingiz eslab qolinadi), bo'sh qoldirsangiz — shu nom bilan yangi mahsulot yaratiladi.</p>
+   <div class="bar" style="margin:0 0 10px;flex-wrap:wrap;gap:8px;align-items:flex-end"><label class="field"><span>Fayl (PDF)</span><input type="file" id="zkF" accept=".pdf,application/pdf"></label><label class="field"><span>Naqd pul kassasi</span><select id="zkCb">${cbs.map(c=>`<option value="${c.id}" ${c.id===cb0?'selected':''}>${esc(c.name)} (${c.currency==='USD'?'$':"so'm"})</option>`).join('')}</select></label><label class="field"><span>Ombor</span><select id="zkWh">${whs.map(w=>`<option value="${w.id}" ${w.id===wh0?'selected':''}>${esc(w.name)}</option>`).join('')}</select></label></div>
+   <datalist id="zkPL">${list('products').filter(p=>p.active!==false).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
+   <div id="zkBody" class="muted">Fayl tanlanmagan</div>
+   <div class="mfoot"><label style="margin-right:auto"><input type="checkbox" id="zkNeg"> Qoldiq yetmasa ham yozilsin</label><button class="btn" data-close>Yopish</button><button class="btn pri" id="zkOk" disabled>Sotuvlarni yaratish</button></div>`,{wide:true,sticky:true});
+  let P=null;const map=Object.assign({},S.config.zkMap||{});
+  const prods=()=>list('products').filter(p=>p.active!==false);
+  const byName=v=>{const n=nrm(v);if(!n)return null;return prods().find(p=>nrm(p.name)===n)||null};
+  const findP=name=>{const n=nrm(name);if(map[n]&&S.products[map[n]]&&!S.products[map[n]].deleted)return map[n];const ps=prods();
+    let m=ps.filter(p=>nrm(p.name)===n);if(m.length===1)return m[0].id;
+    m=ps.filter(p=>(p.sku&&nrm(p.sku)===n)||(p.barcode&&p.barcode===name.trim()));if(m.length===1)return m[0].id;
+    const tk=n.split(/[^a-z0-9а-яёўқғҳ']+/).filter(t=>t.length>1);if(!tk.length)return '';let best=null,bs=0,second=0;
+    for(const p of ps){const pn=nrm(p.name)+' '+nrm(p.sku);const sc=tk.filter(t=>pn.includes(t)).length/tk.length;if(sc>bs){second=bs;bs=sc;best=p}else if(sc>second)second=sc}
+    return bs>=0.99&&second<0.99?best.id:''};
+  const imported=no=>D.docs.find(d=>d.type==='sale'&&d.status==='active'&&d.note&&d.note.includes('Zakaz '+no+' '));
+  const draw=()=>{const wh=$('#zkWh',o).value;const body=$('#zkBody',o);if(!P){body.textContent='Fayl tanlanmagan';return}
+    if(!P.orders.length){body.innerHTML=`<div class="warnbox">Faylda zakaz topilmadi. Bu Hed zakaz'ning kunlik RASXOD fayli ekanini tekshiring.</div>`;$('#zkOk',o).disabled=true;return}
+    const act=P.orders.filter(x=>!x.done);const cash=act.filter(x=>x.pay==='cash').reduce((a,x)=>a+x.total,0),debt=act.filter(x=>x.pay==='debt').reduce((a,x)=>a+x.total,0);
+    body.className='';body.innerHTML=`<p><b>${fdt(P.date)}</b> · zakazlar: <b>${P.orders.length}</b>${P.orders.length-act.length?` (allaqachon yozilgan: ${P.orders.length-act.length})`:''} · naqd: <b>${money(cash)}</b> · qarzga: <b>${money(debt)}</b>${isClosed(P.date)?' · <span class="tag bad">Davr yopilgan</span>':''}</p>${P.warn.length?`<div class="warnbox">${P.warn.map(esc).join('<br>')}</div>`:''}
+     <div class="tbl-wrap"><table><thead><tr><th>Mahsulot (fayldan)</th><th>Katalogdagi mahsulot</th><th class="n">Soni</th><th class="n">Narx</th><th class="n">Summa</th><th class="n">Qoldiq</th></tr></thead><tbody>
+     ${P.orders.map((x,oi)=>`<tr style="background:var(--bg2,rgba(127,127,127,.12))"><td colspan="6"><b>${esc(x.no||'Z-?')}</b> · ${esc(x.time)}${x.seller?' · '+esc(x.seller):''} · ${x.pay==='cash'?'<span class="tag ok">Naqd</span>':`<span class="tag warn">Qarzga</span> <b>${esc(x.client||'—')}</b>${x.phone?' · '+esc(x.phone):''}`} · jami <b>${money(x.total)}</b>${x.sumWarn?` <span class="tag bad" title="Qatorlar yig'indisi ${money(x.sumWarn)}">summa mos emas</span>`:''}${x.note?' · <span class="muted">'+esc(x.note)+'</span>':''}${x.done?` · <span class="tag">Allaqachon yozilgan: ${esc(x.done)}</span>`:''}</td></tr>
+       ${x.lines.map((l,li)=>{const p=l.pid?S.products[l.pid]:null;const st=p?stockOf(p.id,wh):null;return `<tr class="${x.done?'muted':''}"><td class="wrap">${esc(l.name)}</td><td>${x.done?esc(p?p.name:''):`<input type="text" list="zkPL" data-m="${oi}:${li}" value="${esc(p?p.name:'')}" placeholder="— yangi mahsulot yaratiladi —" style="width:100%;min-width:220px">`}</td><td class="n">${fmtN(l.qty,2)}</td><td class="n">${money(l.price)}</td><td class="n">${money(l.qty*l.price)}</td><td class="n">${p?`<span class="${st<l.qty?'neg':''}">${fmtN(st,0)}</span>`:'<span class="tag warn">yangi</span>'}</td></tr>`}).join('')}`).join('')}</tbody></table></div>`;
+    $$('[data-m]',o).forEach(i=>i.onchange=()=>{const [oi,li]=i.dataset.m.split(':').map(Number);const l=P.orders[oi].lines[li];const p=byName(i.value);if(i.value.trim()&&!p){toast("Bunday mahsulot katalogda yo'q — ro'yxatdan tanlang yoki bo'sh qoldiring",true);i.value=l.pid&&S.products[l.pid]?S.products[l.pid].name:'';return}
+      l.pid=p?p.id:'';if(p)map[nrm(l.name)]=p.id;else delete map[nrm(l.name)];draw()});
+    $('#zkOk',o).disabled=!act.length||isClosed(P.date)};
+  $('#zkWh',o).onchange=draw;
+  $('#zkF',o).onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#zkBody',o).textContent='O\'qilmoqda…';
+    try{P=parseRasxod(await pdfRows(f))}catch(err){P=null;$('#zkBody',o).innerHTML=`<div class="warnbox">${esc(String(err.message||err))}</div>`;return}
+    if(!P.date)P.date=today();
+    for(const x of P.orders){const d=x.no&&imported(x.no);x.done=d?d.no:'';for(const l of x.lines)l.pid=findP(l.name)}
+    draw()};
+  $('#zkOk',o).onclick=async()=>{
+    if(!allow('sale')||!P)return;
+    const wh=$('#zkWh',o).value,cb=cbx($('#zkCb',o).value),neg=$('#zkNeg',o).checked;const date=P.date;
+    if(isClosed(date)){toast('Bu sana yopilgan davrga kiradi',true);return}
+    const act=P.orders.filter(x=>!x.done);const errs=[];
+    for(const x of act){if(x.pay==='debt'&&!x.client)errs.push(`${x.no}: qarzga, lekin mijoz yozilmagan`);for(const l of x.lines){if(!(l.qty>0))errs.push(`${x.no}: "${l.name}" soni noto'g'ri`)}}
+    if(errs.length){toast(errs.slice(0,3).join(' · '),true);return}
+    // 1) katalogda yo'q mahsulotlar
+    const need={};for(const x of act)for(const l of x.lines)if(!l.pid){const k=nrm(l.name);if(!need[k])need[k]={id:uid('p'),createdAt:nowISO(),active:true,name:l.name,unit:'dona',price:l.price,minPrice:0,vat:S.config.defaultVat??12};l.pid=need[k].id}
+    const newP=Object.values(need);if(newP.length&&!allow('product'))return;
+    // 2) qoldiq
+    if(!S.config.allowNegative&&!neg){const req={};for(const x of act)for(const l of x.lines)req[l.pid]=(req[l.pid]||0)+l.qty;
+      const low=Object.entries(req).filter(([pid,q])=>!need[nrm((S.products[pid]||{}).name||'')]&&S.products[pid]&&q>stockOf(pid,wh)+1e-9).map(([pid,q])=>`${S.products[pid].name}: kerak ${fmtN(q,0)}, bor ${fmtN(stockOf(pid,wh),0)}`);
+      const nn=newP.length?[`${newP.length} ta yangi mahsulot (qoldiq 0)`]:[];const all=low.concat(nn);
+      if(all.length){toast('Omborda yetarli emas — '+all.slice(0,3).join('; ')+(all.length>3?' …':'')+". Kirimni avval yozing yoki «Qoldiq yetmasa ham yozilsin» ni belgilang",true);return}}
+    const btn=$('#zkOk',o);btn.disabled=true;btn.textContent='Yozilmoqda…';
+    try{
+      for(const p of newP)await putMaster('products',p);
+      // 3) mijozlar
+      const cs=()=>list('contragents').filter(isCli);
+      for(const x of act){x.cid='';if(!x.client)continue;const ph=ph9(x.phone);let m=(ph.length===9&&cs().find(c=>ph9(c.phone)===ph))||cs().find(c=>nrm(c.name)===nrm(x.client));
+        if(!m){if(!allow('contragent'))throw new Error('Mijoz yaratish uchun vakolat yo\'q');m={id:uid('k'),name:x.client,phone:x.phone||'',roles:['client'],balanceOn:true,kind:'jismoniy',createdAt:nowISO()};await putMaster('contragents',m)}
+        else if(x.pay==='debt'&&!m.balanceOn)await putMaster('contragents',{...m,balanceOn:true});
+        x.cid=m.id}
+      // 4) sotuv hujjatlari
+      const docs=act.map(x=>{const total=r2(x.lines.reduce((a,l)=>a+l.qty*l.price,0));
+        const payments=x.pay==='debt'?[{cb:BAL,amount:total,currency:base()}]:[{cb:cb.id,amount:cb.currency==='UZS'?Math.round(fromBase(total,'UZS')):r2(fromBase(total,cb.currency)),currency:cb.currency}];
+        const d={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date,createdAt:nowISO(),by:me().name,byId:me().id,wh,cid:x.cid,rate:rate(),
+          lines:x.lines.map(l=>({pid:l.pid,name:pname(l.pid),qty:num(l.qty),price:num(l.price),disc:0,cost:r2(D.cost[l.pid]||lastPurchase(l.pid)||0)})),payments,total,
+          note:`Zakaz ${x.no||'—'} ${x.time}${x.seller?' · '+x.seller:''}${x.note?' · '+x.note:''}`};
+        if(x.pay==='debt')d.debt=true;return d});
+      await appendItems(docs);
+      try{if(isAdmin()&&JSON.stringify(map)!==JSON.stringify(S.config.zkMap||{}))await putConfig({zkMap:map})}catch(e){}
+      o.close();toast(`${docs.length} ta sotuv yozildi (${fdt(date)})${newP.length?' · yangi mahsulot: '+newP.length:''}`);if(page==='sales'||page==='orders')render()}
+    catch(err){btn.disabled=false;btn.textContent='Sotuvlarni yaratish';toast(String(err.message||err),true)}};
+}
 /* ============ Zakazlar (savdo agentlari yozgan buyurtmalar) ============ */
 const zakazUrl=()=>(window.HB_CONFIG&&window.HB_CONFIG.zakazUrl)||'https://hedelectronix.github.io/hed-zakaz/';
 VIEWS.orders=()=>{
@@ -1258,7 +1376,7 @@ VIEWS.orders=()=>{
      <label class="field"><span>To'lov</span><select id="oP"><option value="">Hammasi</option><option value="cash" ${f.pay==='cash'?'selected':''}>Naqd olindi</option><option value="debt" ${f.pay==='debt'?'selected':''}>Qarzga</option></select></label>
      <label class="field"><span>Holat</span><select id="oS"><option value="act" ${f.st==='act'?'selected':''}>Faol</option><option value="cancel" ${f.st==='cancel'?'selected':''}>Bekor qilingan</option><option value="all" ${f.st==='all'?'selected':''}>Hammasi</option></select></label>
      <label class="field"><span>Berilishi</span><select id="oD"><option value="">Hammasi</option><option value="wait" ${f.dl==='wait'?'selected':''}>Hali berilmagan</option><option value="done" ${f.dl==='done'?'selected':''}>Chiqarildi</option></select></label>
-     <span style="flex:1"></span><button class="btn" id="oRef">Yangilash</button><button class="btn pri" id="oXls" ${L.length?'':'disabled'}>Excel</button></div></div>
+     <span style="flex:1"></span><button class="btn" id="oRef">Yangilash</button>${allow('sale',true)?'<button class="btn pri" id="oImp" title="Hed zakaz kunlik RASXOD (PDF) faylidan sotuvlar yaratish">Kunlik fayldan yuklash</button>':''}<button class="btn" id="oXls" ${L.length?'':'disabled'}>Excel</button></div></div>
    <div class="grid g3" style="margin:12px 0"><div class="card"><span class="muted">Zakazlar</span><h2 style="margin:4px 0 0">${act.length}</h2></div><div class="card"><span class="muted">Naqd olindi</span><h2 style="margin:4px 0 0">${money(cash)}</h2></div><div class="card"><span class="muted">Qarzga</span><h2 style="margin:4px 0 0">${money(debt)}</h2></div></div>
    <p class="muted" style="margin:-4px 0 12px">Hali berilmagan: <b>${act.filter(o=>!o.delivered).length}</b> · Chiqarildi: <b>${act.filter(o=>o.delivered).length}</b></p>
    ${f.list==null?'<div class="card muted">Yuklanmoqda…</div>':`<div class="tbl-wrap"><table><thead><tr><th>Raqam</th><th>Sana</th><th>Sotuvchi</th><th>Mijoz</th><th>Mahsulotlar</th><th>To'lov</th><th>Berilishi</th><th class="n">Summa</th><th></th></tr></thead><tbody>
@@ -1266,13 +1384,13 @@ VIEWS.orders=()=>{
      <td>${o.lines.map(l=>esc(l.name)+' × '+fmtN(l.qty,2)+(l.src==='manual'?' <span class="tag warn">qo\'lda</span>':l.src==='calc'?' <span class="tag">kalkulyator</span>':'')).join('<br>')}${o.note?'<br><span class="muted">'+esc(o.note)+'</span>':''}</td>
      <td>${o.status==='cancelled'?'<span class="tag bad">Bekor</span>':o.pay==='debt'?'<span class="tag warn">Qarzga</span>':'<span class="tag ok">Naqd</span>'}</td><td>${o.status==='cancelled'?'—':o.delivered?`<span class="tag ok">✓ Chiqarildi</span>${o.saleNo?`<br><a class="muted" style="font-size:12px;cursor:pointer;text-decoration:underline" data-osale="${esc(o.saleId)}">Sotuv ${esc(o.saleNo)}</a>`:''}<br><span class="muted" style="font-size:12px">${fdt(o.deliveredAt)} ${t(o.deliveredAt)}${o.deliveredBy?' · '+esc(o.deliveredBy):''}</span>`:'<span class="tag warn">Berilmagan</span>'}</td><td class="n"><b>${money(o.total)}</b></td>
      <td class="n" style="white-space:nowrap">${o.status!=='cancelled'?(o.delivered?(allow('admin',true)&&!o.saleNo?`<button class="btn sm" data-od="${esc(o.id)}" data-on="0">Berilmagan</button>`:''):`${allow('sale',true)?`<button class="btn sm pri" data-osell="${esc(o.id)}" title="Sotuv oynasida ochiladi: ombor kamayadi, qarzga bo'lsa mijoz qarzi yoziladi">Sotuvga</button> `:''}${allow('admin',true)?`<button class="btn sm" data-od="${esc(o.id)}" data-on="1" title="Sotuv hujjatisiz faqat belgilash">Chiqarildi</button> <button class="btn sm" data-oc="${esc(o.id)}" title="Zakazni bekor qilish">Bekor</button>`:''}`):''}</td></tr>`).join(''):'<tr><td colspan="9" class="muted">Bu oraliqda zakaz yo\'q</td></tr>'}</tbody></table></div>`}
-   <div class="card" style="margin-top:12px"><h3>Hed zakaz — sotuvchilar kompyuteri uchun</h3><p class="muted">Sotuvchilar zakazni «Hed zakaz» ilovasida yozadi: <b>${esc(zakazUrl())}</b>. Zakazlar Google Drive'dagi «Hed zakazlar» jadvaliga tushadi va shu yerda ham ko'rinadi. «Sotuvga» tugmasi zakazni sotuv oynasida ochadi — saqlanganda ombor kamayadi va zakaz «Chiqarildi» bo'ladi. Sozlash: Sozlamalar → Zakazlar.</p><button class="btn" id="oCopy">Havolani nusxalash</button></div>`);
+   <div class="card" style="margin-top:12px"><h3>Hed zakaz — sotuvchilar kompyuteri uchun</h3><p class="muted">Sotuvchilar zakazni «Hed zakaz» ilovasida yozadi: <b>${esc(zakazUrl())}</b>. Hed zakaz alohida ishlaydi; kun oxirida keladigan <b>RASXOD</b> (PDF) faylini «Kunlik fayldan yuklash» orqali tanlasangiz, har bir zakaz sotuv bo'lib yoziladi: naqd — kassaga, qarzga — mijoz balansiga, ombor kamayadi. Xohlasangiz, Sozlamalar → Zakazlar orqali to'g'ridan-to'g'ri ulab ham qo'yish mumkin — unda zakazlar shu jadvalga o'zi tushadi.</p><button class="btn" id="oCopy">Havolani nusxalash</button></div>`);
   const reload=async()=>{if(f.to<f.from){toast("Sana oralig'i noto'g'ri",true);return}try{f.list=await rpc('hb_orders_list',{p_from:f.from,p_to:f.to})}catch(e){f.list=f.list||[]}if(page==='orders')VIEWS.orders()};
   if(f.list==null&&!f.busy){f.busy=true;reload().finally(()=>{f.busy=false})}
   $('#oF').onchange=e=>{f.from=e.target.value;f.list=null;VIEWS.orders()};$('#oT').onchange=e=>{f.to=e.target.value;f.list=null;VIEWS.orders()};
 $('#oP').onchange=e=>{f.pay=e.target.value;VIEWS.orders()};$('#oS').onchange=e=>{f.st=e.target.value;VIEWS.orders()};$('#oD').onchange=e=>{f.dl=e.target.value;VIEWS.orders()};if($('#oSl'))$('#oSl').onchange=e=>{f.seller=e.target.value;VIEWS.orders()};
   $$('[data-od]').forEach(b=>b.onclick=async()=>{const on=b.dataset.on==='1';try{const r=await rpc('hb_order_deliver',{p_id:b.dataset.od,p_on:on});const i=f.list.findIndex(x=>x.id===r.id);if(i>=0)f.list[i]=r;toast(on?r.no+' — chiqarildi':r.no+' — berilmagan');VIEWS.orders()}catch(e){}});
-  $('#oRef').onclick=reload;
+  $('#oRef').onclick=reload;if($('#oImp'))$('#oImp').onclick=zkImport;
   $$('[data-osell]').forEach(b=>b.onclick=()=>orderToSale(L.find(x=>x.id===b.dataset.osell)));
   $$('[data-osale]').forEach(a=>a.onclick=()=>{const d=D.byId&&D.byId[a.dataset.osale];if(d&&typeof receiptModal==='function')receiptModal(d);else go('sales')});
   $('#oCopy').onclick=()=>{try{navigator.clipboard.writeText(zakazUrl()).then(()=>toast('Havola nusxalandi'),()=>toast(zakazUrl()))}catch(e){toast(zakazUrl())}};
