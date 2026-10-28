@@ -483,8 +483,10 @@ function isClosed(date){const c=S.config&&S.config.closedUntil;return c&&date<=c
 /* ============ employees / roles ============ */
 const ROLES={admin:'Administrator',kassir:'Kassir',omborchi:'Ombor mudiri',agent:'Savdo agenti'};
 const ROLE_PAGES={admin:null,kassir:['dash','pos','sales','orders','products','contragents','cash','daycash'],omborchi:['dash','products','stock','transfers','inventory','purchases','contragents'],agent:['orders']};
-function me(){return ME?{...ME,...(S.employees[ME.id]||{}),role:ME.role,id:ME.id}:{id:'x',name:'—',role:'kassir'}}
+function me(){return ME?{...ME,...(S.employees[ME.id]||{}),role:ME.role,id:ME.id,owner:ME.owner===true}:{id:'x',name:'—',role:'kassir'}}
 const isAdmin=()=>me().role==='admin';
+/* Do'kon egasi — do'konni ochgan akkaunt (server hb_load'da me.owner=true qaytaradi yoki shop.ownerId). Oddiy administratorlar egasi emas. */
+const isOwner=()=>{const m=me();return !!(m.owner===true||(SHOP&&SHOP.ownerId&&SHOP.ownerId===m.id))};
 function canSee(p){const a=ROLE_PAGES[me().role];return !a||a.includes(p)}
 /* Kirish — Supabase akkaunti; rol serverda tekshiriladi */
 const locked=()=>false;
@@ -805,7 +807,7 @@ VIEWS.dash=()=>{
      <div class="card kpi"><div class="l">Oy boshidan sotuv</div><div class="v">${money(mRev)}</div><div class="s">${month.length} ta chek</div></div>
      ${isAdmin()?`<div class="card kpi"><div class="l">Oy yalpi foydasi</div><div class="v ${mProfit<0?'neg':''}">${money(mProfit)}</div><div class="s">Xarajatlar: ${money(mExp)}</div></div>`:''}
      ${me().role!=='kassir'?`<div class="card kpi"><div class="l">Ombor qiymati (tannarx)</div><div class="v">${money(stockVal)}</div><div class="s">${list('products').length} ta mahsulot</div></div>`:''}
-   </div>${isAdmin()?ownerStrip(cashTotal,stockVal):''}
+   </div>${isOwner()?ownerStrip(cashTotal,stockVal):''}
    <div class="grid g2">
      <div class="card"><h3>So'nggi 14 kun sotuvi</h3><svg class="chart" role="img" aria-label="14 kunlik sotuv">${bars}</svg></div>
      <div class="card"><h3>Oyning eng ko'p sotilganlari</h3>${top.length?`<table><tbody>${top.map(([p,v])=>`<tr><td class="wrap">${esc(pname(p))}</td><td class="n muted">${fmtN(v.q,0)} dona</td><td class="n"><b>${money(v.s)}</b></td></tr>`).join('')}</tbody></table>`:empty('Bu oy hali sotuv yo\'q','«Yangi sotuv» tugmasini bosib, birinchi sotuvni rasmiylashtiring')+(canSee('pos')?'<div style="text-align:center;margin-top:-18px"><button class="btn pri" data-go="pos">Yangi sotuv</button></div>':'')}</div>
@@ -815,7 +817,7 @@ VIEWS.dash=()=>{
      <div class="card"><h3>Kam qolgan tovarlar</h3>${low.length?`<table><tbody>${low.map(p=>`<tr><td class="wrap">${esc(p.name)}</td><td class="n neg">${fmtN(stockOf(p.id),0)} / ${fmtN(p.minStock,0)}</td></tr>`).join('')}</tbody></table>`:(list('products').length?empty('Hammasi yetarli','Mahsulot kartochkasida "Minimal qoldiq" belgilansa, bu yerda ogohlantirish chiqadi'):empty('Hali mahsulot qo\'shilmagan','Mahsulotlar bo\'limida katalog yarating — keyin kam qolgan tovarlar shu yerda ko\'rinadi'))}</div>
    </div></div>`);
   $$('[data-doc]').forEach(r=>r.onclick=()=>showDoc(r.dataset.doc));
-  if($('#rateUpd'))$('#rateUpd').onclick=rateModal;
+  if($('#rateUpd'))$('#rateUpd').onclick=rateModal;if($('#rateAuto'))$('#rateAuto').onclick=()=>autoRate(true);
   $$('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   $$('[data-dc]').forEach(b=>b.onclick=()=>{go('daycash');ui.day=b.dataset.dc;VIEWS.daycash()});
 };
@@ -827,7 +829,7 @@ function ownerStrip(cashTotal,stockVal){
   const supAdv=cs.filter(c=>isSup(c)&&sbalOf(c.id)<-0.009).reduce((a,c)=>a-sbalOf(c.id),0);
   const net=cashTotal+stockVal+recv+supAdv-pay-cliAdv;
   const top=(arr,f)=>arr.sort((a,b)=>f(b)-f(a)).slice(0,3).map(c=>esc(c.name)+' '+money(f(c))).join(', ');
-  return `<div class="owner"><div class="owner-h"><span>Egasi uchun · umumiy holat</span><small>Faqat administrator ko'radi</small></div>
+  return `<div class="owner"><div class="owner-h"><span>Egasi uchun · umumiy holat</span><small>Faqat do'kon egasi ko'radi</small></div>
    <div class="owner-g">
     <button class="oc" data-go="contragents"><span class="ol">Qarzdor mijozlar</span><span class="oval pos">${money(recv)}</span><span class="os">${debtors.length} ta mijoz${debtors.length?' · '+top(debtors,c=>balOf(c.id)):''}</span></button>
     <button class="oc" data-go="contragents"><span class="ol">Ta'minotchilarga qarzimiz</span><span class="oval ${pay>0?'neg':''}">${pay>0?'−':''}${money(pay)}</span><span class="os">${sups.length} ta ta'minotchi${sups.length?' · '+top(sups,c=>sbalOf(c.id)):''}</span></button>
@@ -843,8 +845,28 @@ function closeReminder(){const t=today(),n=tashNow();const y=localDate(new Date(
   if(dayHasMoves(t)&&!dayClosed(t)&&(n.getHours()>17||(n.getHours()===17&&n.getMinutes()>=0)))msgs.push(['warn','Ish kuni tugayapti — bugungi kassani sanab yoping',t]);
   if(dayClosed(t))msgs.push(['ok','Bugungi kassa yopilgan',t]);
   return msgs.map(([c,txt,d])=>`<div class="remind ${c}"><span>${c==='ok'?'✓':'⏰'} ${txt}</span>${c!=='ok'?`<button class="btn sm" data-dc="${d}">Kassani tekshirish</button>`:`<button class="btn sm" data-dc="${d}">Ko'rish</button>`}</div>`).join('')}
+/* ============ Ipak Yo'li banki kursi — avtomatik ============ */
+const RATE_SRC="Ipak Yo'li banki (sotish)";
+function rateUrl(){if(HBC.rateUrl)return HBC.rateUrl;const u=String(HBC.url||'');return /^https?:/.test(u)?u.replace(/\/$/,'')+'/functions/v1/ipak-rate':''}
+async function fetchIpakRate(){const u=rateUrl();if(!u)return null;
+  const h={};if(HBC.anonKey){h.apikey=HBC.anonKey;h.Authorization='Bearer '+HBC.anonKey}
+  const r=await fetch(u,{cache:'no-store',headers:h});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();
+  const v=num(j.sell);if(!(v>1000&&v<100000))throw new Error("kurs noto'g'ri");return {sell:v,buy:num(j.buy),at:j.at||nowISO(),fallback:!!j.fallback}}
+let RATE_BUSY=false;
+/* Har 30 daqiqada va oyna faollashganda bankdan sotuv kursini oladi; farq bo'lsa (yoki 1 soatdan eskirgan bo'lsa) administrator akkauntidan config'ga yozadi — boshqa xodimlarga sinxron orqali tarqaladi */
+async function autoRate(force){
+  if(RATE_BUSY||!S||!S.config||!rateUrl())return;const c=S.config;
+  const fresh=c.rateUpdatedAt&&(Date.now()-new Date(c.rateUpdatedAt).getTime())<3600e3;
+  if(!force&&fresh&&c.rateSource===RATE_SRC)return;
+  RATE_BUSY=true;try{const r=await fetchIpakRate();if(!r)return;
+    const same=num(c.rate)===r.sell&&c.rateSource===RATE_SRC;
+    if(!isAdmin()){if(force)toast(same?'Kurs dolzarb: 1 $ = '+fmtN(r.sell,0)+" so'm":'Bank kursi: '+fmtN(r.sell,0)+" so'm — yangilashni administrator qiladi");return}
+    if(same){if(!fresh||force)await putConfig({rateUpdatedAt:nowISO()});if(force)toast('Kurs dolzarb: 1 $ = '+fmtN(r.sell,0)+" so'm");return}
+    await putConfig({rate:r.sell,rateSource:RATE_SRC,rateUpdatedAt:nowISO()});toast('Kurs yangilandi: 1 $ = '+fmtN(r.sell,0)+" so'm (Ipak Yo'li, sotish)")
+  }catch(e){if(force)toast('Bank kursini olib bo\'lmadi: '+(e.message||e),true)}finally{RATE_BUSY=false}}
+function rateWatch(){setTimeout(()=>autoRate(),1500);setInterval(()=>autoRate(),30*60e3);window.addEventListener('focus',()=>autoRate());document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoRate()})}
 function rateBadge(){const c=S.config;const upd=c.rateUpdatedAt;const stale=!upd||localDate(new Date(upd))<today();
-  return `<div class="ratebox ${stale?'stale':''}"><span>1 $ = <b>${fmtN(rate(),0)} so'm</b></span><span class="rs">${esc(c.rateSource||'Qo\'lda kiritilgan')}${upd?' · '+ftime(upd):''}${stale?' · eskirgan bo\'lishi mumkin':''}</span><button class="btn sm" id="rateUpd">Kursni yangilash</button></div>`}
+  return `<div class="ratebox ${stale?'stale':''}"><span>1 $ = <b>${fmtN(rate(),0)} so'm</b></span><span class="rs">${esc(c.rateSource||'Qo\'lda kiritilgan')}${upd?' · '+ftime(upd):''}${stale?' · eskirgan bo\'lishi mumkin':''}</span>${rateUrl()?`<button class="btn sm" id="rateAuto" title="Ipak Yo'li banki sotuv kursini hozir olish">Bankdan olish</button>`:''}<button class="btn sm" id="rateUpd">Qo'lda kiritish</button></div>`}
 function rateModal(){if(!allow('admin'))return;const o=modal(`<h2>Dollar kursini yangilash</h2><p class="muted" style="margin-top:-6px">Ipak Yo'li banki sotish kursini kiriting (ipakyulibank.uz yoki bank.uz da ko'rinadi). Kurs har bir hujjatda saqlanadi, eski hujjatlar o'zgarmaydi.</p>
   <div class="form"><label class="field"><span>1 USD = … so'm</span><input type="number" step="1" id="rtV" value="${rate()}"></label><div class="field"><span>Manba</span><div style="padding:8px 0"><b>Ipak Yo'li banki — sotish kursi</b><br><a href="https://bank.uz/uz/currency/bank/ipakyulibank" target="_blank" rel="noopener">bank.uz'da joriy kursni ko'rish ↗</a></div></div></div>
   <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="rtOk">Saqlash</button></div>`);
@@ -1434,7 +1456,7 @@ function purchaseModal(){
   const sup=list('contragents').filter(c=>(c.roles||[]).includes('supplier'));
   const whs=list('warehouses'),cbs=list('cashboxes');
   const o=modal(`<h2>Yangi xarid (tovar kirimi)</h2><div class="form">
-    <label class="field"><span>Ta'minotchi</span><select id="pSup"><option value="">— tanlang —</option>${sup.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>Ta'minotchi</span><div style="display:flex;gap:8px"><select id="pSup" style="flex:1;min-width:0"><option value="">— tanlang —</option>${sup.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>${allow('contragent',true)?'<button type="button" class="btn" id="pSupNew" title="Yangi ta\'minotchi qo\'shish">+ Yangi</button>':''}</div></label>
     <label class="field"><span>Qabul qiluvchi ombor</span><select id="pWh">${whs.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('')}</select></label>
     <label class="field"><span>Sana</span><input type="date" id="pDate" value="${today()}" max="${today()}"></label>
     <label class="field"><span>To'lov</span><select id="pMode"><option value="cash">Kassadan to'liq to'landi</option><option value="partial">Qisman to'landi, qolgani qarzga</option><option value="debt">To'lanmadi — ta'minotchiga qarz</option><option value="outside">Kassadan tashqari to'langan</option></select><small class="muted" id="pModeHint"></small></label>
@@ -1457,6 +1479,7 @@ function purchaseModal(){
     $('#pPaidL',o).textContent="To'langan summa ("+(cbx(sel.value).currency==='USD'?'$':"so'm")+')';
     $('#pModeHint',o).textContent={cash:"Summa tanlangan kassadan chiqim bo'ladi",partial:sid?"To'lanmagan qismi ta'minotchi balansiga qarz bo'lib yoziladi":"Qisman to'lov uchun ta'minotchini tanlang",debt:sid?"To'liq summa ta'minotchiga qarz bo'lib yoziladi"+(hasBal(sid)?' (hozir '+money(sbalOf(sid))+')':''):"Qarzga olish uchun ta'minotchini tanlang",outside:"Pul kassadan emas, boshqa yo'l bilan to'langan: kassa ham, ta'minotchi qarzi ham o'zgarmaydi"}[mode];upd()};
   syncP();$('#pSup',o).onchange=()=>{if(hasBal($('#pSup',o).value)&&$('#pMode',o).value==='cash')$('#pMode',o).value='debt';syncP()};
+  if($('#pSupNew',o))$('#pSupNew',o).onclick=()=>quickSupplier(id=>{const c=S.contragents[id];const sel=$('#pSup',o);if(c&&![...sel.options].some(x=>x.value===id)){const op=document.createElement('option');op.value=id;op.textContent=c.name;sel.appendChild(op)}sel.value=id;sel.onchange()});
   $('#pMode',o).onchange=syncP;$('#pPaid',o).oninput=upd;
   o.addEventListener('lines',upd);$('#pCb',o).onchange=syncP;
   $('#pOk',o).onclick=async()=>{
@@ -1725,22 +1748,42 @@ VIEWS.contragents=()=>{
   $('#cNew').onclick=()=>contragentForm(null,tab==='all'?'client':tab);
   $$('[data-cid]').forEach(r=>r.onclick=()=>showContragent(r.dataset.cid));
 };
+function quickSupplier(done){if(!allow('contragent'))return;
+  const o=modal(`<h2>Yangi ta'minotchi</h2><div class="form"><label class="field full"><span>Firma yoki ism *</span><input type="text" id="qs_name" autocomplete="off" placeholder="Masalan: Sanchuan Technology, Dylan (MSI)"></label>
+    <label class="field"><span>Telefon / WeChat</span><input type="text" id="qs_phone" autocomplete="off" placeholder="+86 … yoki WeChat ID"></label>
+    <label class="field"><span>Turi</span><select id="qs_kind"><option value="yuridik">Yuridik / YaTT</option><option value="jismoniy">Jismoniy shaxs</option></select></label>
+    <label class="full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="qs_bal" checked style="margin-top:3px"><span>Balans yuritilsin (qarzga olish va to'lovlarni hisobga olish)</span></label>
+    <label class="full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="qs_cli" style="margin-top:3px"><span>Bir vaqtda <b>mijoz</b> ham (undan tovar olamiz va unga sotamiz ham — sotuv oynasida ham chiqadi)</span></label>
+    <div class="full muted" id="qs_dup" style="min-height:18px"></div></div>
+    <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="qs_ok">Saqlash va tanlash</button></div>`);
+  const norm=x=>String(x||'').replace(/\D/g,'').slice(-9);
+  const find=()=>{const n=$('#qs_name',o).value.trim().toLowerCase(),ph=norm($('#qs_phone',o).value);
+    return list('contragents').find(c=>(ph.length>=7&&norm(c.phone)===ph)||(n&&String(c.name).trim().toLowerCase()===n))};
+  const chk=()=>{const d=find();$('#qs_dup',o).innerHTML=d?`Bunday kontragent bor: <b>${esc(d.name)}</b>${d.phone?' — '+esc(d.phone):''}${isSup(d)?'':" (hozir faqat mijoz — tanlansa ta'minotchi roli ham qo'shiladi)"}. <a class="lnk" id="qs_use">Shuni tanlash</a>`:'';
+    const u=$('#qs_use',o);if(u)u.onclick=async()=>{if(!isSup(d)){try{await putMaster('contragents',{...d,roles:[...(d.roles||[]),'supplier']})}catch(e){return}}o.close();done(d.id)}};
+  $('#qs_name',o).oninput=chk;$('#qs_phone',o).oninput=chk;
+  $('#qs_ok',o).onclick=async()=>{const name=$('#qs_name',o).value.trim();if(!name){toast("Ta'minotchi nomini kiriting",true);$('#qs_name',o).focus();return}
+    const d=find();if(d){toast(`«${d.name}» allaqachon bor — «Shuni tanlash» ni bosing`,true);return}
+    const obj={id:uid('k'),name,phone:$('#qs_phone',o).value.trim(),kind:$('#qs_kind',o).value,roles:$('#qs_cli',o).checked?['supplier','client']:['supplier'],balanceOn:$('#qs_bal',o).checked,createdAt:nowISO()};
+    try{await putMaster('contragents',obj);o.close();toast(`Ta'minotchi qo'shildi: ${name}`);done(obj.id)}catch(e){}};
+  setTimeout(()=>$('#qs_name',o).focus(),40)}
 function quickClient(done){if(!allow('contragent'))return;
   const o=modal(`<h2>Yangi mijoz</h2><div class="form"><label class="field full"><span>Ism yoki firma nomi *</span><input type="text" id="qc_name" autocomplete="off" placeholder="Masalan: Aziz aka, Abu Sahiy B-12"></label>
     <label class="field"><span>Telefon</span><input type="text" id="qc_phone" inputmode="tel" autocomplete="off" placeholder="+998 90 123 45 67"></label>
     <label class="field"><span>Telegram</span><input type="text" id="qc_tg" autocomplete="off" placeholder="@username"></label>
     <label class="full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="qc_bal" checked style="margin-top:3px"><span>Balans yuritilsin (qarzga sotish va to'lovlarni hisobga olish)</span></label>
+    <label class="full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="qc_sup" style="margin-top:3px"><span>Bir vaqtda <b>ta'minotchi</b> ham (undan tovar ham olamiz — xarid oynasida ham chiqadi)</span></label>
     <div class="full muted" id="qc_dup" style="min-height:18px"></div></div>
     <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="qc_ok">Saqlash va tanlash</button></div>`);
   const norm=x=>String(x||'').replace(/\D/g,'').slice(-9);
   const find=()=>{const n=$('#qc_name',o).value.trim().toLowerCase(),ph=norm($('#qc_phone',o).value);
-    return list('contragents').filter(c=>isCli(c)).find(c=>(ph.length>=7&&norm(c.phone)===ph)||(n&&String(c.name).trim().toLowerCase()===n))};
-  const chk=()=>{const d=find();$('#qc_dup',o).innerHTML=d?`Bunday mijoz bor: <b>${esc(d.name)}</b>${d.phone?' — '+esc(d.phone):''}. <a class="lnk" id="qc_use">Shuni tanlash</a>`:'';
-    const u=$('#qc_use',o);if(u)u.onclick=()=>{o.close();done(d.id)}};
+    return list('contragents').find(c=>(ph.length>=7&&norm(c.phone)===ph)||(n&&String(c.name).trim().toLowerCase()===n))};
+  const chk=()=>{const d=find();$('#qc_dup',o).innerHTML=d?`Bunday kontragent bor: <b>${esc(d.name)}</b>${d.phone?' — '+esc(d.phone):''}${isCli(d)?'':" (hozir faqat ta'minotchi — tanlansa mijoz roli ham qo'shiladi)"}. <a class="lnk" id="qc_use">Shuni tanlash</a>`:'';
+    const u=$('#qc_use',o);if(u)u.onclick=async()=>{if(!isCli(d)){try{await putMaster('contragents',{...d,roles:[...(d.roles||[]),'client']})}catch(e){return}}o.close();done(d.id)}};
   $('#qc_name',o).oninput=chk;$('#qc_phone',o).oninput=chk;
   $('#qc_ok',o).onclick=async()=>{const name=$('#qc_name',o).value.trim();if(!name){toast('Mijoz nomini kiriting',true);$('#qc_name',o).focus();return}
     const d=find();if(d){toast(`«${d.name}» allaqachon bor — «Shuni tanlash» ni bosing`,true);return}
-    const obj={id:uid('k'),name,phone:$('#qc_phone',o).value.trim(),tg:$('#qc_tg',o).value.trim(),roles:['client'],balanceOn:$('#qc_bal',o).checked,createdAt:nowISO()};
+    const obj={id:uid('k'),name,phone:$('#qc_phone',o).value.trim(),tg:$('#qc_tg',o).value.trim(),roles:$('#qc_sup',o).checked?['client','supplier']:['client'],balanceOn:$('#qc_bal',o).checked,createdAt:nowISO()};
     try{await putMaster('contragents',obj);o.close();toast(`Mijoz qo'shildi: ${name}`);done(obj.id)}catch(e){}};
   setTimeout(()=>$('#qc_name',o).focus(),40)}
 function tgLinkCopy(){const u='https://t.me/'+TGBOT;try{navigator.clipboard.writeText(u).then(()=>toast('Havola nusxalandi'),()=>toast(u))}catch(e){toast(u)}}
@@ -2113,10 +2156,10 @@ VIEWS.settings=()=>{
   let body='';
   const tog=(k,t,s,def)=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)"><input type="checkbox" data-flag="${k}" ${(c[k]??def)?'checked':''} style="margin-top:3px"><span><b>${t}</b><br><span class="muted">${s}</span></span></label>`;
   if(tab==='co')body=`<div class="card"><div class="form"><label class="field full"><span>Korxona nomi</span><input type="text" data-cfg="company" value="${esc(c.company||'')}"></label><label class="field"><span>STIR</span><input type="text" data-cfg="stir" value="${esc(c.stir||'')}"></label><label class="field"><span>Telefon</span><input type="text" data-cfg="phone" value="${esc(c.phone||'')}"></label><label class="field full"><span>Manzil</span><input type="text" data-cfg="address" value="${esc(c.address||'')}"></label><label class="field"><span>Sotuv raqami nechadan boshlansin</span><input type="number" step="1" min="1" data-cfg="saleStartNo" value="${c.saleStartNo||1}"></label><label class="field"><span>Xarid raqami nechadan boshlansin</span><input type="number" step="1" min="1" data-cfg="purStartNo" value="${c.purStartNo||1}"></label></div><div class="mfoot"><button class="btn pri" id="cfgSave">Saqlash</button></div></div>`;
-  if(tab==='fx')body=`<div class="card"><div class="form"><label class="field"><span>Asosiy valyuta (narxlar va hisobotlar)</span><select data-cfg="base" ${D.docs.length?'disabled':''}><option ${c.base==='USD'?'selected':''}>USD</option><option ${c.base==='UZS'?'selected':''}>UZS</option></select></label><label class="field"><span>1 USD = … so'm</span><input type="number" step="1" data-cfg="rate" value="${c.rate}"></label></div>${D.docs.length?'<p class="muted">Hujjatlar mavjud bo\'lgani uchun asosiy valyutani o\'zgartirib bo\'lmaydi.</p>':''}<p class="muted">Kurs har bir hujjatda saqlanadi — kursni yangilash eski hujjatlarga ta'sir qilmaydi.</p><div class="mfoot"><button class="btn pri" id="cfgSave">Saqlash</button></div></div>`;
+  if(tab==='fx')body=`<div class="card"><div class="form"><label class="field"><span>Asosiy valyuta (narxlar va hisobotlar)</span><select data-cfg="base" ${D.docs.length?'disabled':''}><option ${c.base==='USD'?'selected':''}>USD</option><option ${c.base==='UZS'?'selected':''}>UZS</option></select></label><label class="field"><span>1 USD = … so'm</span><input type="number" step="1" data-cfg="rate" value="${c.rate}"></label></div>${D.docs.length?'<p class="muted">Hujjatlar mavjud bo\'lgani uchun asosiy valyutani o\'zgartirib bo\'lmaydi.</p>':''}<p class="muted">Kurs har bir hujjatda saqlanadi — kursni yangilash eski hujjatlarga ta'sir qilmaydi.</p><p class="muted">Kurs <b>Ipak Yo'li banki sotuv kursi</b>dan avtomatik olinadi: ilova ochilganda, har 30 daqiqada va oynaga qaytilganda tekshiriladi; farq bo'lsa darhol yangilanadi. Qo'lda kiritilgan kurs keyingi tekshiruvda bank kursi bilan almashadi.</p><div class="mfoot"><button class="btn pri" id="cfgSave">Saqlash</button></div></div>`;
   if(tab==='fl')body=`<div class="card">${tog('allowNegative',"Minus qoldiqqa sotish","Omborda yetarli tovar bo'lmasa ham sotish/ko'chirishga ruxsat",false)}${tog('allowNegativeCash',"Kassani minusga tushirish","Kassada pul yetmasa ham chiqim, xarid, qaytarish yoki o'tkazma yozishga ruxsat",false)}${tog('allowFreeReturn',"Kassir cheksiz qaytarish qila oladi","O'chiq bo'lsa, kassir faqat chek bo'yicha qaytaradi (sotilgandan ko'p va qimmatroq emas); cheksiz qaytarishni administrator qiladi",false)}${tog('minPriceCheck','Minimal narx nazorati',"Kassir mahsulotni minimal narxdan arzon sota olmaydi (administrator uchun cheklov yo'q)",true)}${tog('allowDiscount',"Chegirma berish","Kassada qatorga foiz chegirma kiritish",true)}${tog('allowPriceEdit',"Kassada narxni o'zgartirish","O'chirilsa, faqat administrator narxni o'zgartira oladi",true)}${tog('tgNotify',"Mijozlarga Telegram orqali xabar","Sotuv, qaytarish va to'lovda mijozga chek va qarz qoldig'i Telegram'da boradi (mijoz botga telefon raqamini ulagan bo'lsa)",true)}${tog('showVat',"Chekda QQSni ko'rsatish","Mahsulot kartochkasidagi stavka bo'yicha «shu jumladan QQS» qatori",false)}</div>`;
-  if(tab==='emp'){const es=list('employees').filter(e=>!e.deleted);body=`<div class="tbl-wrap"><table><thead><tr><th>Ism</th><th>Rol</th><th>Email (login)</th><th>Akkaunt</th><th>Holat</th><th></th></tr></thead><tbody>${es.map(e=>`<tr><td><b>${esc(e.name)}</b>${e.id===me().id?' <span class="tag blue">siz</span>':''}</td><td>${ROLES[e.role]}</td><td>${esc(e.email||'—')}</td><td>${e.linked?'<span class="tag ok">Ulangan</span>':(!e.email?'<span class="tag">Email yo\'q</span>':e.invitePending?`<span class="tag warn">Kod berilgan (${fdt(e.inviteExpires)} gacha)</span>`:'<span class="tag bad">Kod berilmagan</span>')}</td><td>${e.active===false?'<span class="tag">Nofaol</span>':'<span class="tag ok">Faol</span>'}</td><td class="n">${!e.linked&&e.email&&e.id!==me().id?`<button class="btn sm" data-inv="${e.id}">Taklif kodi</button> `:''}<button class="btn sm" data-emp="${e.id}">Tahrirlash</button></td></tr>`).join('')}</tbody></table></div><div class="mfoot" style="justify-content:flex-start"><button class="btn pri" id="empNew">Xodim qo'shish</button></div>
-   <p class="muted">Rollar: Administrator — hamma bo'limlar; Kassir — kassa, sotuvlar, mijozlar, pullar (xarid narxi va foyda ko'rinmaydi); Ombor mudiri — mahsulotlar, ombor, xaridlar, ko'chirish, inventarizatsiya.</p>
+  if(tab==='emp'){const es=list('employees').filter(e=>!e.deleted);body=`<div class="tbl-wrap"><table><thead><tr><th>Ism</th><th>Rol</th><th>Email (login)</th><th>Akkaunt</th><th>Holat</th><th></th></tr></thead><tbody>${es.map(e=>`<tr><td><b>${esc(e.name)}</b>${e.owner?' <span class="tag ok">egasi</span>':''}${e.id===me().id?' <span class="tag blue">siz</span>':''}</td><td>${ROLES[e.role]}</td><td>${esc(e.email||'—')}</td><td>${e.linked?'<span class="tag ok">Ulangan</span>':(!e.email?'<span class="tag">Email yo\'q</span>':e.invitePending?`<span class="tag warn">Kod berilgan (${fdt(e.inviteExpires)} gacha)</span>`:'<span class="tag bad">Kod berilmagan</span>')}</td><td>${e.active===false?'<span class="tag">Nofaol</span>':'<span class="tag ok">Faol</span>'}</td><td class="n">${!e.linked&&e.email&&e.id!==me().id?`<button class="btn sm" data-inv="${e.id}">Taklif kodi</button> `:''}<button class="btn sm" data-emp="${e.id}">Tahrirlash</button></td></tr>`).join('')}</tbody></table></div><div class="mfoot" style="justify-content:flex-start"><button class="btn pri" id="empNew">Xodim qo'shish</button></div>
+   <p class="muted">Rollar: Do'kon egasi — do'konni ochgan akkaunt, hamma bo'limlar va «Egasi uchun · umumiy holat» paneli (boshqa administratorlar bu panelni ko'rmaydi); Administrator — hamma bo'limlar; Kassir — kassa, sotuvlar, mijozlar, pullar (xarid narxi va foyda ko'rinmaydi); Ombor mudiri — mahsulotlar, ombor, xaridlar, ko'chirish, inventarizatsiya.</p>
    <div class="notebox">Yangi xodim: ismi, roli va <b>emailini</b> kiriting — ilova bir martalik <b>taklif kodi</b> beradi. Kodni xodimga yuboring: u ilovani ochib «Ro'yxatdan o'tish» orqali <b>xuddi shu email</b>, o'z paroli va shu kod bilan kiradi. Kod 7 kun amal qiladi, faqat shu email bilan ishlaydi va 5 marta xato kiritilsa bekor bo'ladi. Har bir amalni server xodimning roliga qarab tekshiradi. Xodimni «Nofaol» qilsangiz yoki emailini o'zgartirsangiz, u darhol kira olmay qoladi.</div>`}
   if(tab==='wh')body=`<div class="tbl-wrap"><table><thead><tr><th>Ombor</th><th>Manzil</th><th class="n">Qiymati (tannarx)</th><th></th></tr></thead><tbody>${list('warehouses').map(w=>{let v=0;list('products').forEach(p=>v+=stockOf(p.id,w.id)*(D.cost[p.id]||0));return `<tr><td><b>${esc(w.name)}</b></td><td>${esc(w.address||'')}</td><td class="n">${money(v)}</td><td class="n"><button class="btn sm" data-wh="${w.id}">Tahrirlash</button></td></tr>`}).join('')}</tbody></table></div><div class="mfoot" style="justify-content:flex-start"><button class="btn pri" id="whNew">Ombor qo'shish</button></div>`;
   if(tab==='cb')body=`<div class="tbl-wrap"><table><thead><tr><th>Kassa</th><th>Valyuta</th><th class="n">Qoldiq</th><th>Holat</th><th></th></tr></thead><tbody>${list('cashboxes').map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${x.currency}</td><td class="n">${money(D.cash[x.id]||0,x.currency)}</td><td>${x.active===false?'<span class="tag">Nofaol</span>':'<span class="tag ok">Faol</span>'}</td><td class="n"><button class="btn sm" data-cbe="${x.id}">Tahrirlash</button> <button class="btn sm danger" data-cbd="${x.id}">O'chirish</button></td></tr>`).join('')}</tbody></table></div><div class="mfoot" style="justify-content:flex-start"><button class="btn pri" id="cbNew2">Kassa qo'shish</button></div>`;
@@ -2288,7 +2331,7 @@ async function loadShops(){loadTg();const box=$('#shopsBox');if(!box)return;let 
   $$('[data-shop]').forEach(b=>b.onclick=async()=>{const dis=b.dataset.dis==='1';const x=L.find(y=>y.id===b.dataset.shop);
     const ok=await confirmBox(dis?`«${x.name}» do'konini to'xtatasizmi? Xodimlari kira olmay qoladi.`:`«${x.name}» do'konini qayta yoqasizmi?`,dis?"To'xtatish":'Yoqish');if(!ok)return;
     try{await rpc('hb_platform_set',{p_shop:x.id,p_disabled:dis});toast(dis?"Do'kon to'xtatildi":"Do'kon yoqildi");loadShops()}catch(e){}})}
-function boot(){compute();shell();render()}
+function boot(){compute();shell();render();rateWatch()}
 function authScreen(mode,msg,kind){
   mode=mode||'in';const ttl={in:'Kirish',up:"Ro'yxatdan o'tish",reset:'Parolni tiklash',newpw:'Yangi parol'}[mode];
   $('#root').innerHTML=`<div class="auth"><div class="box"><svg width="44" height="44" viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="lga" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A9AEB4"/><stop offset=".55" stop-color="#8B9097"/><stop offset="1" stop-color="#6B7178"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#lga)"/><g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v21M10 13h20M14 30h12"/><path d="M10 13l-4 8h8zM30 13l-4 8h8z"/></g></svg>
