@@ -1696,8 +1696,6 @@ function productForm(p,opt={}){
    <label class="field"><span>Shtrix-kod</span><input type="text" id="f_barcode" value="${esc(p.barcode||'')}"></label>
    <div class="field"><span>Kategoriya</span><div style="display:flex;gap:6px;min-width:0"><select id="f_categorySel" style="flex:1 1 0;width:0;min-width:0" aria-label="Kategoriya"><option value="">— tanlanmagan —</option>${cats.map(c=>`<option ${c===(p.category||'')?'selected':''}>${esc(c)}</option>`).join('')}<option value="__new">+ Yangi kategoriya…</option></select><input type="text" id="f_category" value="${esc(p.category||'')}" placeholder="Yangi kategoriya nomi" hidden style="flex:1 1 0;width:0;min-width:0" aria-label="Yangi kategoriya nomi"></div></div>
    <div class="field"><span>Brend</span><div style="display:flex;gap:6px;min-width:0"><select id="f_brandSel" style="flex:1 1 0;width:0;min-width:0" aria-label="Brend"><option value="">— tanlanmagan —</option>${brands.map(c=>`<option ${c===(p.brand||'')?'selected':''}>${esc(c)}</option>`).join('')}<option value="__new">+ Yangi brend…</option></select><input type="text" id="f_brand" value="${esc(p.brand||'')}" placeholder="Yangi brend nomi" hidden style="flex:1 1 0;width:0;min-width:0" aria-label="Yangi brend nomi"></div></div>
-   <label class="field"><span>Sotish narxi (${base()}) *</span><input type="number" step="0.01" min="0" id="f_price" value="${p.price??''}"></label>
-   <label class="field"><span>Minimal narx (${base()})</span><input type="number" step="0.01" min="0" id="f_minPrice" value="${p.minPrice||''}"></label>
    <label class="field"><span>Birlik</span><select id="f_unit">${['dona','komplekt','quti','metr','kg','litr'].map(u=>`<option ${u===p.unit?'selected':''}>${u}</option>`).join('')}</select></label>
    <label class="field"><span>Minimal qoldiq (ogohlantirish)</span><input type="number" step="1" min="0" id="f_minStock" value="${p.minStock||''}"></label>
    <label class="field"><span>MXIK (IKPU) kodi</span><input type="text" id="f_mxik" value="${esc(p.mxik||'')}" inputmode="numeric" placeholder="17 xonali kod"></label>
@@ -1709,11 +1707,9 @@ function productForm(p,opt={}){
     if(!allow('product'))return;
     const v=k=>$('#f_'+k,o).value.trim();
     if(!v('name')){toast('Nomini kiriting',true);return}
-    if(num(v('price'))<=0){toast('Sotish narxini kiriting',true);$('#f_price',o).focus();return}
-    if(num(v('minPrice'))>num(v('price'))){toast("Minimal narx sotish narxidan katta bo'lmasin",true);return}
     if(v('mxik')&&!/^\d{17}$/.test(v('mxik'))){toast('MXIK kodi 17 ta raqamdan iborat bo\'lishi kerak',true);return}
     if(v('barcode')&&list('products').some(x=>x.id!==p.id&&x.barcode===v('barcode'))){toast('Bu shtrix-kod boshqa mahsulotda bor',true);return}
-    const obj={...p,id:p.id||uid('p'),createdAt:p.createdAt||nowISO(),name:v('name'),sku:v('sku'),barcode:v('barcode'),category:v('category'),brand:v('brand'),price:num(v('price')),minPrice:num(v('minPrice')),unit:v('unit'),minStock:num(v('minStock')),mxik:v('mxik'),vat:num(v('vat')),active:$('#f_active',o).checked};
+    const obj={...p,id:p.id||uid('p'),createdAt:p.createdAt||nowISO(),name:v('name'),sku:v('sku'),barcode:v('barcode'),category:v('category'),brand:v('brand'),price:num(p.price),minPrice:num(p.minPrice),unit:v('unit'),minStock:num(v('minStock')),mxik:v('mxik'),vat:num(v('vat')),active:$('#f_active',o).checked};
     o.close();await putMaster('products',obj);toast('Saqlandi');if(opt.after)opt.after(obj.id);
   };
 }
