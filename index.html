@@ -387,7 +387,7 @@ var PLATFORM=false,SHOP=null,TGBOT='',TGL=new Set();
 async function syncNow(){if(!SB||!ME)return;if(SYNCING){SYNC_AGAIN=true;return SYNCING}
   SYNCING=(async()=>{try{do{SYNC_AGAIN=false;const r=await rpc('hb_load',{since:REV},{silent:true});const meBefore=ME&&ME.role;applyLoad(r);
       if(!ME||ME.active===false||ME.deleted){location.reload();return}
-      if(meBefore&&ME.role!==meBefore){render();continue}refresh()}while(SYNC_AGAIN)}catch(e){if(/huquqi/.test(e.message))location.reload()}finally{SYNCING=null}})();return SYNCING}
+      if(meBefore&&ME.role!==meBefore){render();continue}refresh()}while(SYNC_AGAIN)}catch(e){if(/huquqi|Obuna muddati/.test(e.message))location.reload()}finally{SYNCING=null}})();return SYNCING}
 async function putMaster(col,obj){
   obj={...obj};delete obj.updatedAt;delete obj.updatedBy;
   const prev=S[col][obj.id];S[col][obj.id]={...obj,updatedAt:nowISO(),updatedBy:me().name};refresh();
@@ -799,7 +799,7 @@ VIEWS.dash=()=>{
   const low=list('products').filter(p=>p.active!==false&&num(p.minStock)>0&&stockOf(p.id)<num(p.minStock)).slice(0,6);
   const recent=D.docs.slice(-8).reverse();
   actions(canSee('pos')?`<button class="btn pri" onclick="go('pos')">Yangi sotuv</button>`:'');
-  C(`<div class="grid">${canSee('daycash')?closeReminder():''}
+  C(`<div class="grid">${subReminder()}${canSee('daycash')?closeReminder():''}
    ${me().role==='omborchi'?'':`<div class="card hero"><div><div class="l">Kassalardagi jami pul</div><div class="v">${money(cashTotal)}</div><div class="l" style="margin-top:4px">${base()==='USD'?'≈ '+money(fromBase(cashTotal,'UZS'),'UZS'):''}</div>${rateBadge()}</div>
      <div class="cbtiles">${list('cashboxes').map(c=>{const v=D.cash[c.id]||0;return `<div class="cbtile"><span class="cn">${esc(c.name)}</span><span class="cv ${v<0?'cneg':''}">${money(v,c.currency)}</span><span class="ce">${c.currency!==base()?'≈ '+money(toBase(v,c.currency)):'&nbsp;'}</span></div>`}).join('')}</div></div>`}
    <div class="grid g4">
@@ -2328,10 +2328,30 @@ async function loadShops(){loadTg();const box=$('#shopsBox');if(!box)return;let 
   try{L=await rpc('hb_platform_shops',{},{silent:true})}catch(e){box.textContent=String(e.message||e);return}
   if(!$('#shopsBox'))return;
   const act=L.filter(x=>!x.disabled).length;
-  $('#shopsBox').innerHTML=`<p><b>${L.length}</b> ta do'kon, faol: <b>${act}</b></p><div class="tbl-wrap"><table><thead><tr><th>Do'kon</th><th>Egasi (email)</th><th>Ochilgan</th><th class="n">Xodim</th><th class="n">Mahsulot</th><th class="n">Hujjat</th><th>Oxirgi hujjat</th><th>Holat</th><th></th></tr></thead><tbody>${L.map(x=>`<tr><td><b>${esc(x.name)}</b>${x.mine?' <span class="tag blue">sizniki</span>':''}</td><td>${esc(x.owner||'—')}</td><td>${fdt(x.createdAt)}</td><td class="n">${x.employees}</td><td class="n">${x.products}</td><td class="n">${x.docs}</td><td>${x.lastAt?fdt(x.lastAt):'—'}</td><td>${x.disabled?'<span class="tag bad">To\'xtatilgan</span>':'<span class="tag ok">Faol</span>'}</td><td class="n">${x.mine?'':`<button class="btn sm" data-shop="${esc(x.id)}" data-dis="${x.disabled?0:1}">${x.disabled?'Yoqish':'To\'xtatish'}</button>`}</td></tr>`).join('')||'<tr><td colspan="9" class="muted">Hali do\'kon yo\'q</td></tr>'}</tbody></table></div>`;
+  const payCell=x=>{if(x.mine)return '<span class="muted">—</span>';if(!x.paidUntil)return '<span class="tag ok">Cheksiz</span>';const d=Math.round((new Date(x.paidUntil)-new Date(today()))/864e5);
+    return d<0?`<span class="tag bad">Tugagan ${fdt(x.paidUntil)}</span>`:d<=7?`<span class="tag warn">${fdt(x.paidUntil)} · ${d} kun</span>`:`<span class="tag ok">${fdt(x.paidUntil)}</span>`};
+  $('#shopsBox').innerHTML=`<p><b>${L.length}</b> ta do'kon, faol: <b>${act}</b>, to'lovi tugagan: <b>${L.filter(x=>!x.mine&&x.paidUntil&&x.paidUntil<today()).length}</b></p><div class="tbl-wrap"><table><thead><tr><th>Do'kon</th><th>Egasi (email)</th><th>Ochilgan</th><th class="n">Xodim</th><th class="n">Hujjat</th><th>Oxirgi hujjat</th><th>To'lov muddati</th><th>Holat</th><th></th></tr></thead><tbody>${L.map(x=>`<tr><td><b>${esc(x.name)}</b>${x.mine?' <span class="tag blue">sizniki</span>':''}</td><td>${esc(x.owner||'—')}</td><td>${fdt(x.createdAt)}</td><td class="n">${x.employees}</td><td class="n">${x.docs}</td><td>${x.lastAt?fdt(x.lastAt):'—'}</td><td>${payCell(x)}</td><td>${x.disabled?'<span class="tag bad">To\'xtatilgan</span>':'<span class="tag ok">Faol</span>'}</td><td class="n" style="white-space:nowrap">${x.mine?'':`<button class="btn sm pri" data-pay="${esc(x.id)}">To'lov</button> <button class="btn sm" data-shop="${esc(x.id)}" data-dis="${x.disabled?0:1}">${x.disabled?'Yoqish':'To\'xtatish'}</button>`}</td></tr>`).join('')||'<tr><td colspan="9" class="muted">Hali do\'kon yo\'q</td></tr>'}</tbody></table></div>
+   <p class="muted" style="margin-top:8px">Har bir do'kon to'lov muddati tugagach ilovaga kira olmaydi (xodimlari ham). «To'lov» tugmasi muddatni to'langan oylar soniga uzaytiradi: muddati hali tugamagan bo'lsa — eski muddatdan, tugagan bo'lsa — bugundan hisoblanadi. Yangi ochilgan do'konga ro'yxatdan o'tgan kundan 30 kun beriladi.</p>`;
   $$('[data-shop]').forEach(b=>b.onclick=async()=>{const dis=b.dataset.dis==='1';const x=L.find(y=>y.id===b.dataset.shop);
     const ok=await confirmBox(dis?`«${x.name}» do'konini to'xtatasizmi? Xodimlari kira olmay qoladi.`:`«${x.name}» do'konini qayta yoqasizmi?`,dis?"To'xtatish":'Yoqish');if(!ok)return;
-    try{await rpc('hb_platform_set',{p_shop:x.id,p_disabled:dis});toast(dis?"Do'kon to'xtatildi":"Do'kon yoqildi");loadShops()}catch(e){}})}
+    try{await rpc('hb_platform_set',{p_shop:x.id,p_disabled:dis});toast(dis?"Do'kon to'xtatildi":"Do'kon yoqildi");loadShops()}catch(e){}});
+  $$('[data-pay]').forEach(b=>b.onclick=()=>payModal(L.find(y=>y.id===b.dataset.pay)))}
+async function payModal(x){
+  const o=modal(`<h2>To'lov: ${esc(x.name)}</h2><p class="muted" style="margin-top:-6px">Hozirgi muddat: <b>${x.paidUntil?fdt(x.paidUntil):'cheksiz'}</b></p><div class="form">
+    <label class="field"><span>Necha oy uchun</span><input type="number" id="py_m" min="1" max="24" step="1" value="1"></label>
+    <label class="field"><span>Summa (ixtiyoriy)</span><input type="number" id="py_a" min="0" step="1" placeholder="so'm"></label>
+    <label class="field full"><span>Izoh</span><input type="text" id="py_n" placeholder="Masalan: Click orqali, chek №…"></label>
+    <div class="full muted" id="py_prev"></div>
+    <details class="full"><summary>Muddatni qo'lda belgilash</summary><div class="bar" style="margin-top:8px"><input type="date" id="py_d" value="${x.paidUntil||''}"><button class="btn sm" id="py_set">Shu sanagacha</button><button class="btn sm" id="py_inf">Cheksiz qilish</button></div></details>
+    <div class="full muted" id="py_hist">Yuklanmoqda…</div></div>
+    <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="py_ok">To'lovni qabul qilish</button></div>`,{wide:true});
+  const prev=()=>{const m=Math.max(1,Math.min(24,parseInt($('#py_m',o).value)||1));const base=x.paidUntil&&x.paidUntil>today()?new Date(x.paidUntil):new Date(today());const d=new Date(base);d.setMonth(d.getMonth()+m);$('#py_prev',o).textContent='Yangi muddat: '+fdt(localDate(d))};
+  $('#py_m',o).oninput=prev;prev();
+  try{const H=await rpc('hb_platform_payments',{p_shop:x.id},{silent:true});$('#py_hist',o).innerHTML=H.length?`<b>To'lovlar tarixi</b><table><tbody>${H.map(h=>`<tr><td>${ftime(h.at)}</td><td>${h.months} oy</td><td class="n">${h.amount!=null?fmtN(h.amount,0)+" so'm":'—'}</td><td>${fdt(h.paidUntil)} gacha</td><td class="muted">${esc(h.note||'')}</td></tr>`).join('')}</tbody></table>`:'<span class="muted">Hali to\'lov yo\'q</span>'}catch(e){$('#py_hist',o).textContent=''}
+  $('#py_ok',o).onclick=async()=>{const m=parseInt($('#py_m',o).value)||0;if(m<1||m>24){toast('Oylar soni 1–24',true);return}const a=$('#py_a',o).value===''?null:num($('#py_a',o).value);
+    try{const r=await rpc('hb_platform_pay',{p_shop:x.id,p_months:m,p_amount:a,p_note:$('#py_n',o).value.trim()});o.close();toast(`${x.name}: ${fdt(r.paidUntil)} gacha to'landi`);loadShops()}catch(e){}};
+  $('#py_set',o).onclick=async()=>{const d=$('#py_d',o).value;if(!d){toast('Sanani tanlang',true);return}try{await rpc('hb_platform_until',{p_shop:x.id,p_until:d});o.close();toast('Muddat: '+fdt(d));loadShops()}catch(e){}};
+  $('#py_inf',o).onclick=async()=>{if(!await confirmBox(`«${x.name}» uchun to'lov muddati cheksiz bo'lsinmi?`,'Cheksiz'))return;try{await rpc('hb_platform_until',{p_shop:x.id,p_until:null});o.close();toast('Muddat cheksiz');loadShops()}catch(e){}}}
 function boot(){compute();shell();render();rateWatch()}
 function authScreen(mode,msg,kind){
   mode=mode||'in';const ttl={in:'Kirish',up:"Ro'yxatdan o'tish",reset:'Parolni tiklash',newpw:'Yangi parol'}[mode];
@@ -2366,6 +2386,9 @@ function authScreen(mode,msg,kind){
     catch(e){const m=String(e.message||e);say(/Invalid login/i.test(m)?"Email yoki parol noto'g'ri":/Email not confirmed/i.test(m)?"Email hali tasdiqlanmagan — pochtangizdagi havolani bosing":/already registered/i.test(m)?"Bu email allaqachon ro'yxatdan o'tgan — «Kirish» orqali kiring":/rate limit|too many/i.test(m)?"Juda ko'p urinish — birozdan keyin qayta urining":netErr(m)?"Internet aloqasi yo'q":m,'err')}
     finally{busyA=false;const b=$('#aOk');if(b)b.disabled=false}};
   setTimeout(()=>{const f=$('#aE')||$('#aP');const act=document.activeElement;if(f&&(!act||act===document.body))f.focus()},50)}
+function subReminder(){if(!SHOP||!SHOP.paidUntil)return '';const d=typeof SHOP.daysLeft==='number'?SHOP.daysLeft:Math.round((new Date(SHOP.paidUntil)-new Date(today()))/864e5);if(d>7)return '';
+  return `<div class="remind ${d<=2?'bad':'warn'}"><span>⏰ Obuna muddati ${fdt(SHOP.paidUntil)} da tugaydi${d>0?' ('+d+' kun qoldi)':' (bugun)'} — oylik to'lovni amalga oshiring, aks holda ilova yopiladi.</span></div>`}
+function expiredScreen(msg){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>Obuna muddati tugagan</h1><p class="muted">${esc(msg||'')}</p><p class="muted">Hed balansdan foydalanishni davom ettirish uchun oylik to'lovni amalga oshiring. To'lov tasdiqlangach ilova darhol ochiladi.</p><div class="links"><a id="nRe">Qayta tekshirish</a><a id="nOut">Chiqish</a></div></div></div>`;$('#nOut').onclick=signOut;$('#nRe').onclick=()=>location.reload()}
 function noticeScreen(title,text){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>${esc(title)}</h1><p class="muted">${esc(text)}</p><button class="btn" id="nOut">Chiqish</button></div></div>`;$('#nOut').onclick=signOut}
 function savedCode(){let c='';try{c=sessionStorage.getItem('hb_code')||localStorage.getItem('hb_code')||''}catch(e){}return c}
 function clearCode(){try{sessionStorage.removeItem('hb_code');localStorage.removeItem('hb_code')}catch(e){}}
@@ -2391,8 +2414,9 @@ async function enter(code){
     if(b.reason==='code_expired'){clearCode();return noticeScreen("Taklif kodi yaroqsiz",`Kodning muddati o'tgan yoki ko'p marta xato kiritilgani uchun bekor qilingan. Administratordan ${b.email} uchun yangi taklif kodi so'rang.`)}
     if(b.reason==='unconfirmed')return noticeScreen('Email tasdiqlanmagan',`${b.email} manziliga yuborilgan havolani bosing, so'ng ilovani qayta oching.`);
     if(b.reason==='not_employee'){clearCode();return codeScreen(b.email,`${b.email} uchun taklif topilmadi. Do'kon administratori sizni Sozlamalar → Xodimlar bo'limida aynan shu email bilan qo'shishi kerak.`)}
+    if(/Obuna muddati/.test(b.msg||''))return expiredScreen(b.msg);
     return noticeScreen("Serverga ulanib bo'lmadi",b.msg||"Internet aloqasini tekshirib, qayta urinib ko'ring.")}
-  const r=await rpc('hb_load',{since:0});applyLoad(r);
+  let r;try{r=await rpc('hb_load',{since:0},{silent:true})}catch(e){if(/Obuna muddati/.test(e.message||''))return expiredScreen(e.message);toast(e.message,true);throw e}applyLoad(r);
   if(ME&&ME.role==='agent'){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>Hed zakaz</h1><p class="muted">Zakazlar «Hed zakaz» ilovasida yoziladi — u Google Sheets orqali ishlaydi va akkaunt talab qilmaydi. Ulanish manzili va PIN ni administratordan oling.</p><a class="btn pri" href="${esc(zakazUrl())}" style="display:block;text-align:center;text-decoration:none">Hed zakazni ochish</a><button class="btn" id="nOut">Chiqish</button></div></div>`;$('#nOut').onclick=signOut;return}
   boot();
   try{SB.channel('hb-changes').on('postgres_changes',{event:'INSERT',schema:'public',table:'hb_changes'},()=>{clearTimeout(window.__sy);window.__sy=setTimeout(syncNow,250)}).subscribe()}catch(e){}
