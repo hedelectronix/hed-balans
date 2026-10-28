@@ -1749,22 +1749,23 @@ VIEWS.contragents=()=>{
   $$('[data-cid]').forEach(r=>r.onclick=()=>showContragent(r.dataset.cid));
 };
 function quickSupplier(done){if(!allow('contragent'))return;
-  const o=modal(`<h2>Yangi ta'minotchi</h2><div class="form"><label class="field full"><span>Firma yoki ism *</span><input type="text" id="qs_name" autocomplete="off" placeholder="Masalan: Sanchuan Technology, Dylan (MSI)"></label>
-    <label class="field"><span>Telefon / WeChat</span><input type="text" id="qs_phone" autocomplete="off" placeholder="+86 … yoki WeChat ID"></label>
-    <label class="field"><span>Turi</span><select id="qs_kind"><option value="yuridik">Yuridik / YaTT</option><option value="jismoniy">Jismoniy shaxs</option></select></label>
-    <label class="full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="qs_bal" checked style="margin-top:3px"><span>Balans yuritilsin (qarzga olish va to'lovlarni hisobga olish)</span></label>
-    <label class="full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="qs_cli" style="margin-top:3px"><span>Bir vaqtda <b>mijoz</b> ham (undan tovar olamiz va unga sotamiz ham — sotuv oynasida ham chiqadi)</span></label>
+  const regs=(S.config&&S.config.regions)||[];
+  const o=modal(`<h2>Yangi ta'minotchi</h2><div class="form"><label class="field full"><span>Ismi yoki firma nomi *</span><input type="text" id="qs_name" autocomplete="off"></label>
+    <label class="field"><span>Viloyat / shahar</span><input type="text" id="qs_region" list="qs_regs" autocomplete="off"><datalist id="qs_regs">${regs.map(r=>`<option value="${esc(r)}">`).join('')}</datalist></label>
+    <label class="field"><span>Telefon</span><input type="text" id="qs_phone" inputmode="tel" autocomplete="off"></label>
+    <label class="field full"><span>Telegram (ixtiyoriy)</span><input type="text" id="qs_tg" autocomplete="off" placeholder="@"></label>
+    <label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="qs_cli"><span>Mijoz ham (unga sotamiz ham)</span></label>
     <div class="full muted" id="qs_dup" style="min-height:18px"></div></div>
-    <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="qs_ok">Saqlash va tanlash</button></div>`);
+    <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="qs_ok">Saqlash</button></div>`);
   const norm=x=>String(x||'').replace(/\D/g,'').slice(-9);
   const find=()=>{const n=$('#qs_name',o).value.trim().toLowerCase(),ph=norm($('#qs_phone',o).value);
     return list('contragents').find(c=>(ph.length>=7&&norm(c.phone)===ph)||(n&&String(c.name).trim().toLowerCase()===n))};
-  const chk=()=>{const d=find();$('#qs_dup',o).innerHTML=d?`Bunday kontragent bor: <b>${esc(d.name)}</b>${d.phone?' — '+esc(d.phone):''}${isSup(d)?'':" (hozir faqat mijoz — tanlansa ta'minotchi roli ham qo'shiladi)"}. <a class="lnk" id="qs_use">Shuni tanlash</a>`:'';
+  const chk=()=>{const d=find();$('#qs_dup',o).innerHTML=d?`Bunday kontragent bor: <b>${esc(d.name)}</b>. <a class="lnk" id="qs_use">Shuni tanlash</a>`:'';
     const u=$('#qs_use',o);if(u)u.onclick=async()=>{if(!isSup(d)){try{await putMaster('contragents',{...d,roles:[...(d.roles||[]),'supplier']})}catch(e){return}}o.close();done(d.id)}};
   $('#qs_name',o).oninput=chk;$('#qs_phone',o).oninput=chk;
-  $('#qs_ok',o).onclick=async()=>{const name=$('#qs_name',o).value.trim();if(!name){toast("Ta'minotchi nomini kiriting",true);$('#qs_name',o).focus();return}
+  $('#qs_ok',o).onclick=async()=>{const name=$('#qs_name',o).value.trim();if(!name){toast("Ismini kiriting",true);$('#qs_name',o).focus();return}
     const d=find();if(d){toast(`«${d.name}» allaqachon bor — «Shuni tanlash» ni bosing`,true);return}
-    const obj={id:uid('k'),name,phone:$('#qs_phone',o).value.trim(),kind:$('#qs_kind',o).value,roles:$('#qs_cli',o).checked?['supplier','client']:['supplier'],balanceOn:$('#qs_bal',o).checked,createdAt:nowISO()};
+    const obj={id:uid('k'),name,region:$('#qs_region',o).value.trim(),phone:$('#qs_phone',o).value.trim(),tg:$('#qs_tg',o).value.trim().replace(/^@/,''),kind:'jismoniy',roles:$('#qs_cli',o).checked?['supplier','client']:['supplier'],balanceOn:true,createdAt:nowISO()};
     try{await putMaster('contragents',obj);o.close();toast(`Ta'minotchi qo'shildi: ${name}`);done(obj.id)}catch(e){}};
   setTimeout(()=>$('#qs_name',o).focus(),40)}
 function quickClient(done){if(!allow('contragent'))return;
