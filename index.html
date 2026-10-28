@@ -1295,11 +1295,11 @@ async function zkImport(){
   const cbs=list('cashboxes').filter(c=>c.active!==false),whs=list('warehouses');
   if(!cbs.length||!whs.length){toast("Avval kassa va ombor yarating",true);return}
   const cb0=(cbs.find(c=>c.currency===base())||cbs[0]).id,wh0=POS.wh&&whs.some(w=>w.id===POS.wh)?POS.wh:whs[0].id;
-  const o=modal(`<h2>Kunlik zakaz faylidan sotuv yaratish</h2><p class="muted">Hed zakaz'dan keladigan kunlik <b>RASXOD</b> PDF faylini tanlang. Har bir zakaz alohida sotuv bo'ladi: <b>naqd</b> — tanlangan kassaga, <b>qarzga</b> — mijoz balansiga yoziladi, ombor kamayadi. Mahsulotlar katalog bilan nomi bo'yicha solishtiriladi: mos kelmaganini ro'yxatdan tanlang (tanlovingiz eslab qolinadi), bo'sh qoldirsangiz — shu nom bilan yangi mahsulot yaratiladi.</p>
+  const o=modal(`<h2>Kunlik zakaz faylidan sotuv yaratish</h2><p class="muted">Hed zakaz'dan keladigan kunlik <b>RASXOD</b> PDF faylini tanlang. Har bir zakaz alohida sotuv bo'ladi: <b>naqd</b> — tanlangan kassaga, <b>qarzga</b> — mijoz balansiga yoziladi, ombor kamayadi. Mahsulotlar katalog bilan nomi bo'yicha solishtiriladi: mos kelmagan nom <b>xato</b> deb ko'rsatiladi — uni ro'yxatdan tanlang (tanlovingiz eslab qolinadi). Omborda qoldiq yetmasa ham xato — avval kirimni yozing.</p>
    <div class="bar" style="margin:0 0 10px;flex-wrap:wrap;gap:8px;align-items:flex-end"><label class="field"><span>Fayl (PDF)</span><input type="file" id="zkF" accept=".pdf,application/pdf"></label><label class="field"><span>Naqd pul kassasi</span><select id="zkCb">${cbs.map(c=>`<option value="${c.id}" ${c.id===cb0?'selected':''}>${esc(c.name)} (${c.currency==='USD'?'$':"so'm"})</option>`).join('')}</select></label><label class="field"><span>Ombor</span><select id="zkWh">${whs.map(w=>`<option value="${w.id}" ${w.id===wh0?'selected':''}>${esc(w.name)}</option>`).join('')}</select></label></div>
    <datalist id="zkPL">${list('products').filter(p=>p.active!==false).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
    <div id="zkBody" class="muted">Fayl tanlanmagan</div>
-   <div class="mfoot"><label style="margin-right:auto"><input type="checkbox" id="zkNeg"> Qoldiq yetmasa ham yozilsin</label><button class="btn" data-close>Yopish</button><button class="btn pri" id="zkOk" disabled>Sotuvlarni yaratish</button></div>`,{wide:true,sticky:true});
+   <div class="mfoot"><span class="muted" id="zkErr" style="margin-right:auto"></span><button class="btn" data-close>Yopish</button><button class="btn pri" id="zkOk" disabled>Sotuvlarni yaratish</button></div>`,{wide:true,sticky:true});
   let P=null;const map=Object.assign({},S.config.zkMap||{});
   const prods=()=>list('products').filter(p=>p.active!==false);
   const byName=v=>{const n=nrm(v);if(!n)return null;return prods().find(p=>nrm(p.name)===n)||null};
@@ -1313,13 +1313,17 @@ async function zkImport(){
   const draw=()=>{const wh=$('#zkWh',o).value;const body=$('#zkBody',o);if(!P){body.textContent='Fayl tanlanmagan';return}
     if(!P.orders.length){body.innerHTML=`<div class="warnbox">Faylda zakaz topilmadi. Bu Hed zakaz'ning kunlik RASXOD fayli ekanini tekshiring.</div>`;$('#zkOk',o).disabled=true;return}
     const act=P.orders.filter(x=>!x.done);const cash=act.filter(x=>x.pay==='cash').reduce((a,x)=>a+x.total,0),debt=act.filter(x=>x.pay==='debt').reduce((a,x)=>a+x.total,0);
+    const neg=S.config.allowNegative;const req={};for(const x of act)for(const l of x.lines)if(l.pid)req[l.pid]=(req[l.pid]||0)+l.qty;let nErr=0;
+    const lineErr=(x,l)=>{if(x.done)return '';if(!l.pid)return "Katalogda yo'q — ro'yxatdan tanlang";if(!neg&&req[l.pid]>stockOf(l.pid,wh)+1e-9)return `Qoldiq yetarli emas (bor ${fmtN(stockOf(l.pid,wh),0)}, kerak ${fmtN(req[l.pid],0)})`;return ''};
+    for(const x of act)for(const l of x.lines)if(lineErr(x,l))nErr++;
     body.className='';body.innerHTML=`<p><b>${fdt(P.date)}</b> · zakazlar: <b>${P.orders.length}</b>${P.orders.length-act.length?` (allaqachon yozilgan: ${P.orders.length-act.length})`:''} · naqd: <b>${money(cash)}</b> · qarzga: <b>${money(debt)}</b>${isClosed(P.date)?' · <span class="tag bad">Davr yopilgan</span>':''}</p>${P.warn.length?`<div class="warnbox">${P.warn.map(esc).join('<br>')}</div>`:''}
      <div class="tbl-wrap"><table><thead><tr><th>Mahsulot (fayldan)</th><th>Katalogdagi mahsulot</th><th class="n">Soni</th><th class="n">Narx</th><th class="n">Summa</th><th class="n">Qoldiq</th></tr></thead><tbody>
      ${P.orders.map((x,oi)=>`<tr style="background:var(--bg2,rgba(127,127,127,.12))"><td colspan="6"><b>${esc(x.no||'Z-?')}</b> · ${esc(x.time)}${x.seller?' · '+esc(x.seller):''} · ${x.pay==='cash'?'<span class="tag ok">Naqd</span>':`<span class="tag warn">Qarzga</span> <b>${esc(x.client||'—')}</b>${x.phone?' · '+esc(x.phone):''}`} · jami <b>${money(x.total)}</b>${x.sumWarn?` <span class="tag bad" title="Qatorlar yig'indisi ${money(x.sumWarn)}">summa mos emas</span>`:''}${x.note?' · <span class="muted">'+esc(x.note)+'</span>':''}${x.done?` · <span class="tag">Allaqachon yozilgan: ${esc(x.done)}</span>`:''}</td></tr>
-       ${x.lines.map((l,li)=>{const p=l.pid?S.products[l.pid]:null;const st=p?stockOf(p.id,wh):null;return `<tr class="${x.done?'muted':''}"><td class="wrap">${esc(l.name)}</td><td>${x.done?esc(p?p.name:''):`<input type="text" list="zkPL" data-m="${oi}:${li}" value="${esc(p?p.name:'')}" placeholder="— yangi mahsulot yaratiladi —" style="width:100%;min-width:220px">`}</td><td class="n">${fmtN(l.qty,2)}</td><td class="n">${money(l.price)}</td><td class="n">${money(l.qty*l.price)}</td><td class="n">${p?`<span class="${st<l.qty?'neg':''}">${fmtN(st,0)}</span>`:'<span class="tag warn">yangi</span>'}</td></tr>`}).join('')}`).join('')}</tbody></table></div>`;
+       ${x.lines.map((l,li)=>{const p=l.pid?S.products[l.pid]:null;const st=p?stockOf(p.id,wh):null;return `<tr class="${x.done?'muted':''}"><td class="wrap">${esc(l.name)}</td><td>${x.done?esc(p?p.name:''):`<input type="text" list="zkPL" data-m="${oi}:${li}" value="${esc(p?p.name:'')}" placeholder="— katalogdan tanlang —" style="width:100%;min-width:220px${lineErr(x,l)?';border-color:var(--bad,#d33)':''}">`}${lineErr(x,l)?`<div class="neg" style="font-size:12px;margin-top:3px">✖ ${esc(lineErr(x,l))}</div>`:''}</td><td class="n">${fmtN(l.qty,2)}</td><td class="n">${money(l.price)}</td><td class="n">${money(l.qty*l.price)}</td><td class="n">${p?`<span class="${st<l.qty?'neg':''}">${fmtN(st,0)}</span>`:'<span class="tag bad">yo\'q</span>'}</td></tr>`}).join('')}`).join('')}</tbody></table></div>`;
+    $('#zkErr',o).innerHTML=nErr?`<span class="neg">✖ ${nErr} ta xato — tuzatmasdan yozib bo'lmaydi</span>`:(act.length?'<span class="pos">✓ Hammasi mos</span>':'');
     $$('[data-m]',o).forEach(i=>i.onchange=()=>{const [oi,li]=i.dataset.m.split(':').map(Number);const l=P.orders[oi].lines[li];const p=byName(i.value);if(i.value.trim()&&!p){toast("Bunday mahsulot katalogda yo'q — ro'yxatdan tanlang yoki bo'sh qoldiring",true);i.value=l.pid&&S.products[l.pid]?S.products[l.pid].name:'';return}
       l.pid=p?p.id:'';if(p)map[nrm(l.name)]=p.id;else delete map[nrm(l.name)];draw()});
-    $('#zkOk',o).disabled=!act.length||isClosed(P.date)};
+    $('#zkOk',o).disabled=!act.length||isClosed(P.date)||nErr>0};
   $('#zkWh',o).onchange=draw;
   $('#zkF',o).onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#zkBody',o).textContent='O\'qilmoqda…';
     try{P=parseRasxod(await pdfRows(f))}catch(err){P=null;$('#zkBody',o).innerHTML=`<div class="warnbox">${esc(String(err.message||err))}</div>`;return}
@@ -1328,29 +1332,24 @@ async function zkImport(){
     draw()};
   $('#zkOk',o).onclick=async()=>{
     if(!allow('sale')||!P)return;
-    const wh=$('#zkWh',o).value,cb=cbx($('#zkCb',o).value),neg=$('#zkNeg',o).checked;const date=P.date;
+    const wh=$('#zkWh',o).value,cb=cbx($('#zkCb',o).value);const date=P.date;
     if(isClosed(date)){toast('Bu sana yopilgan davrga kiradi',true);return}
     const act=P.orders.filter(x=>!x.done);const errs=[];
-    for(const x of act){if(x.pay==='debt'&&!x.client)errs.push(`${x.no}: qarzga, lekin mijoz yozilmagan`);for(const l of x.lines){if(!(l.qty>0))errs.push(`${x.no}: "${l.name}" soni noto'g'ri`)}}
+    for(const x of act){if(x.pay==='debt'&&!x.client)errs.push(`${x.no}: qarzga, lekin mijoz yozilmagan`);for(const l of x.lines){if(!(l.qty>0))errs.push(`${x.no}: "${l.name}" soni noto'g'ri`);if(!l.pid||!S.products[l.pid])errs.push(`"${l.name}" katalogda yo'q`)}}
     if(errs.length){toast(errs.slice(0,3).join(' · '),true);return}
-    // 1) katalogda yo'q mahsulotlar
-    const need={};for(const x of act)for(const l of x.lines)if(!l.pid){const k=nrm(l.name);if(!need[k])need[k]={id:uid('p'),createdAt:nowISO(),active:true,name:l.name,unit:'dona',price:l.price,minPrice:0,vat:S.config.defaultVat??12};l.pid=need[k].id}
-    const newP=Object.values(need);if(newP.length&&!allow('product'))return;
-    // 2) qoldiq
-    if(!S.config.allowNegative&&!neg){const req={};for(const x of act)for(const l of x.lines)req[l.pid]=(req[l.pid]||0)+l.qty;
-      const low=Object.entries(req).filter(([pid,q])=>!need[nrm((S.products[pid]||{}).name||'')]&&S.products[pid]&&q>stockOf(pid,wh)+1e-9).map(([pid,q])=>`${S.products[pid].name}: kerak ${fmtN(q,0)}, bor ${fmtN(stockOf(pid,wh),0)}`);
-      const nn=newP.length?[`${newP.length} ta yangi mahsulot (qoldiq 0)`]:[];const all=low.concat(nn);
-      if(all.length){toast('Omborda yetarli emas — '+all.slice(0,3).join('; ')+(all.length>3?' …':'')+". Kirimni avval yozing yoki «Qoldiq yetmasa ham yozilsin» ni belgilang",true);return}}
+    // 1) qoldiq
+    if(!S.config.allowNegative){const req={};for(const x of act)for(const l of x.lines)req[l.pid]=(req[l.pid]||0)+l.qty;
+      const low=Object.entries(req).filter(([pid,q])=>q>stockOf(pid,wh)+1e-9).map(([pid,q])=>`${S.products[pid].name}: kerak ${fmtN(q,0)}, bor ${fmtN(stockOf(pid,wh),0)}`);
+      if(low.length){toast('Omborda yetarli emas — '+low.slice(0,3).join('; ')+(low.length>3?' …':'')+'. Avval kirimni yozing',true);draw();return}}
     const btn=$('#zkOk',o);btn.disabled=true;btn.textContent='Yozilmoqda…';
     try{
-      for(const p of newP)await putMaster('products',p);
-      // 3) mijozlar
+      // 2) mijozlar
       const cs=()=>list('contragents').filter(isCli);
       for(const x of act){x.cid='';if(!x.client)continue;const ph=ph9(x.phone);let m=(ph.length===9&&cs().find(c=>ph9(c.phone)===ph))||cs().find(c=>nrm(c.name)===nrm(x.client));
         if(!m){if(!allow('contragent'))throw new Error('Mijoz yaratish uchun vakolat yo\'q');m={id:uid('k'),name:x.client,phone:x.phone||'',roles:['client'],balanceOn:true,kind:'jismoniy',createdAt:nowISO()};await putMaster('contragents',m)}
         else if(x.pay==='debt'&&!m.balanceOn)await putMaster('contragents',{...m,balanceOn:true});
         x.cid=m.id}
-      // 4) sotuv hujjatlari
+      // 3) sotuv hujjatlari
       const docs=act.map(x=>{const total=r2(x.lines.reduce((a,l)=>a+l.qty*l.price,0));
         const payments=x.pay==='debt'?[{cb:BAL,amount:total,currency:base()}]:[{cb:cb.id,amount:cb.currency==='UZS'?Math.round(fromBase(total,'UZS')):r2(fromBase(total,cb.currency)),currency:cb.currency}];
         const d={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date,createdAt:nowISO(),by:me().name,byId:me().id,wh,cid:x.cid,rate:rate(),
@@ -1359,7 +1358,7 @@ async function zkImport(){
         if(x.pay==='debt')d.debt=true;return d});
       await appendItems(docs);
       try{if(isAdmin()&&JSON.stringify(map)!==JSON.stringify(S.config.zkMap||{}))await putConfig({zkMap:map})}catch(e){}
-      o.close();toast(`${docs.length} ta sotuv yozildi (${fdt(date)})${newP.length?' · yangi mahsulot: '+newP.length:''}`);if(page==='sales'||page==='orders')render()}
+      o.close();toast(`${docs.length} ta sotuv yozildi (${fdt(date)})`);if(page==='sales'||page==='orders')render()}
     catch(err){btn.disabled=false;btn.textContent='Sotuvlarni yaratish';toast(String(err.message||err),true)}};
 }
 /* ============ Zakazlar (savdo agentlari yozgan buyurtmalar) ============ */
