@@ -32,7 +32,7 @@
   --bg:#50555D; --panel:#5B6068; --soft:#646971; --line:#767C84; --ink:#FFFFFF; --ink2:#EBEDF0;
   --acc:#E9EBEE; --accInk:#3A3F47; --accSoft:#646971; --accLine:#8B9097;
   --vio:#DADDE1; --vioSoft:#646971;
-  --ok:#8EDDB0; --okSoft:rgba(142,221,176,.16); --warn:#F0C46A; --warnSoft:rgba(240,196,106,.16); --bad:#FF9E95; --badSoft:rgba(255,158,149,.16); --badInk:#3A3F47; --blue:#DADDE1;
+  --ok:#B0F0CB; --okSoft:rgba(142,221,176,.16); --warn:#F8DA94; --warnSoft:rgba(240,196,106,.16); --bad:#FFC0BA; --badSoft:rgba(255,158,149,.16); --badInk:#3A3F47; --blue:#DADDE1;
   --hdrBg:#474C53; --hdrInk:#DADDE1; --hdrHi:#FFFFFF; --hdrLine:rgba(255,255,255,.16); --hdrBtn:rgba(255,255,255,.08);
   --side:#474C53; --sideInk:#DADDE1; --sideHi:#FFFFFF;
   --hero:#5B6068; --heroInk:#F7F8FA; --heroMute:#DADDE1; --tile:#646971; --tileLine:#767C84;
@@ -153,6 +153,7 @@ td.n,th.n{text-align:right}
 td.wrap{white-space:normal;min-width:180px}
 .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600;background:var(--soft);color:var(--ink2)}
 .tag.ok{background:var(--okSoft);color:var(--ok)}
+.card a:not([class]){color:var(--acc);font-weight:600}
 .tag.warn{background:var(--warnSoft);color:var(--warn)}
 .tag.bad{background:var(--badSoft);color:var(--bad)}
 .tag.blue{background:var(--soft);color:var(--blue)}
@@ -260,7 +261,7 @@ details summary{cursor:pointer;font-weight:600}
 .lnk.muted2{color:var(--acc);opacity:.85}
 .iconbtn{border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink2);padding:2px 6px;border-radius:6px}
 .iconbtn:hover{background:var(--soft);color:var(--ink)}
-.stbadge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;color:#FFFFFF;background:var(--ok)}
+.stbadge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;color:var(--badInk);background:var(--ok)}
 .stbadge.warn{background:var(--warn)}.stbadge.bad{background:var(--bad)}
 .ptag{display:inline-block;font-size:12px;background:var(--soft);border-radius:6px;padding:1px 6px;margin:1px 0;white-space:nowrap}
 .colopt{display:flex;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;border-radius:6px}.colopt:hover{background:var(--soft)}
