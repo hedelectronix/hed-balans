@@ -1016,8 +1016,7 @@ function renderCart(){
       add.value=dr.label;$('#dPr').value=dr.price;$('#dQty').value=dr.qty;const st=stockOf(p.id,POS.wh);$('#dSt').textContent=fmtN(st,0);$('#dSt').className='stk'+(st<=0?' neg':'');dSum();
       setTimeout(()=>{$('#dQty').focus();$('#dQty').select()},0);return}
     dr.pid='';savePOS();
-    if(!allow('product',true)){toast("Mahsulot topilmadi. Yangi mahsulotni administrator yoki ombor mudiri qo'shadi",true);return}
-    newProd(v)};
+    toast("Mahsulot topilmadi. Sotuvda yangi mahsulot qo'shib bo'lmaydi — mahsulot faqat kirim (Xaridlar) orqali qo'shiladi",true)};
   const newProd=v=>{if(document.querySelector('.ov #f_name'))return;productForm(null,{name:v||'',after:id=>{const np=S.products[id];if(!np)return;dr.pid=id;dr.label=np.name+(np.sku?' | '+np.sku:'');dr.price=num(np.price);if(!num(dr.qty))dr.qty=1;savePOS();renderCart();setTimeout(()=>$('#dQty')&&$('#dQty').focus(),0)}})};
   const commit=()=>{if(!dr.pid){if(add.value.trim())pick(add.value);else toast('Avval mahsulotni tanlang',true);return}
     if(num(dr.qty)<=0){toast('Miqdorni kiriting',true);$('#dQty').focus();return}
