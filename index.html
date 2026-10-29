@@ -340,6 +340,15 @@ input[type=date]{cursor:pointer}
 .uzcal .ud.tod{box-shadow:inset 0 0 0 1px var(--accLine)}
 .uzcal .ud.sel{background:var(--acc);color:var(--accInk);font-weight:700}
 .uzcal .uft{display:flex;justify-content:space-between;margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+.stk{display:block;font-size:12px;color:var(--ink2);margin-top:2px}
+.stk.neg{color:var(--bad)}
+#dSt:not(:empty)::before{content:"Qoldiq: "}
+.sgbox{position:fixed;z-index:9000;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:320px;overflow:auto}
+.sgbox[hidden]{display:none}
+.sgbox .sgi{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 10px;cursor:pointer}
+.sgbox .sgi.on,.sgbox .sgi:hover{background:var(--accSoft)}
+.sgbox .sgi small{color:var(--ink2);white-space:nowrap}
+.sgbox .sgi small.neg{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -908,7 +917,7 @@ VIEWS.pos=()=>{
       <label class="field"><span>Ombor</span><select id="sWh">${whs.map(w=>`<option value="${w.id}" ${w.id===POS.wh?'selected':''}>${esc(w.name)}</option>`).join('')}</select></label>
     </div>
     <datalist id="posPL"></datalist>
-    <div class="tbl-wrap"><table class="stbl"><thead><tr><th style="width:36px">#</th><th>Mahsulot</th><th class="n" style="width:90px">Qoldiq</th><th style="width:110px">Miqdor</th><th style="width:140px">Narx (${base()})</th><th style="width:110px">Chegirma %</th><th class="n" style="width:130px">Summa</th><th style="width:44px"></th></tr></thead><tbody id="sBody"></tbody></table></div>
+    <div class="tbl-wrap"><table class="stbl"><thead><tr><th style="width:36px">#</th><th>Mahsulot</th><th style="width:110px">Miqdor</th><th style="width:140px">Narx (${base()})</th><th style="width:110px">Chegirma %</th><th class="n" style="width:130px">Summa</th><th style="width:44px"></th></tr></thead><tbody id="sBody"></tbody></table></div>
     <div class="sale-foot">
       <label class="field"><span>Izoh</span><textarea id="sNote" placeholder="Izoh">${esc(curTab().note||'')}</textarea></label>
       <div class="sale-tot"><div><span class="muted">Oraliq jami:</span><b id="tSub"></b></div><div><span class="muted">Chegirma:</span><b id="tDisc"></b></div><div class="big"><span>Jami:</span><b id="tTot"></b></div><div class="muted" id="tUzs" style="justify-content:flex-end"></div>
@@ -958,7 +967,7 @@ function renderCart(){
   $('#sCliNew').onclick=()=>quickClient(id=>{t.cid=id;savePOS();if(page==='pos')VIEWS.pos()});
   $('#posPL').innerHTML=productOptions();
   const noPrice=S.config.allowPriceEdit===false&&!isAdmin(),noDisc=S.config.allowDiscount===false;
-  const row=(l,i)=>{const p=S.products[l.pid]||{};const st=stockOf(l.pid,POS.wh);return `<tr><td class="muted">${i+1}</td><td class="wrap"><b>${esc(p.name||'—')}</b>${p.sku?` <span class="muted">${esc(p.sku)}</span>`:''}</td><td class="n ${st<=0?'neg':''}">${fmtN(st,0)}</td>
+  const row=(l,i)=>{const p=S.products[l.pid]||{};const st=stockOf(l.pid,POS.wh);return `<tr><td class="muted">${i+1}</td><td class="wrap"><b>${esc(p.name||'—')}</b>${p.sku?` <span class="muted">${esc(p.sku)}</span>`:''}<small class="stk ${st<=0?'neg':''}">Qoldiq: ${fmtN(st,0)}</small></td>
     <td><input type="number" min="0" step="1" value="${l.qty}" data-f="qty" data-i="${i}" aria-label="Miqdor" style="width:100%"></td>
     <td><input type="number" min="0" step="0.01" value="${l.price}" data-f="price" data-i="${i}" aria-label="Narx" style="width:100%" ${noPrice?'disabled':''}></td>
     <td><input type="number" min="0" max="100" step="1" value="${l.disc||0}" data-f="disc" data-i="${i}" aria-label="Chegirma" style="width:100%" ${noDisc?'disabled':''}></td>
@@ -966,8 +975,8 @@ function renderCart(){
   const dr=t.draft||(t.draft={pid:'',label:'',qty:1,price:'',disc:0});
   const dst=dr.pid?fmtN(stockOf(dr.pid,POS.wh),0):'';
   $('#sBody').innerHTML=t.lines.map(row).join('')+`<tr class="addrow"><td class="muted">${t.lines.length+1}</td>
-    <td><div style="display:flex;gap:6px;min-width:0"><input type="text" id="sAdd" list="posPL" value="${esc(dr.label||'')}" placeholder="Mahsulot nomi, artikul yoki shtrix-kod" style="flex:1;min-width:0"></div></td>
-    <td class="n ${dr.pid&&stockOf(dr.pid,POS.wh)<=0?'neg':''}" id="dSt">${dst}</td>
+    <td><div style="min-width:0"><input type="text" id="sAdd" autocomplete="off" value="${esc(dr.label||'')}" placeholder="Mahsulot nomi, artikul yoki shtrix-kod" style="width:100%;min-width:0"><small id="dSt" class="stk ${dr.pid&&stockOf(dr.pid,POS.wh)<=0?'neg':''}">${dst}</small><div id="sgBox" class="sgbox" hidden></div></div></td>
+    
     <td><input type="number" min="0" step="1" id="dQty" value="${dr.qty}" aria-label="Miqdor" style="width:100%"></td>
     <td><input type="number" min="0" step="0.01" id="dPr" value="${dr.price}" aria-label="Narx" style="width:100%" ${noPrice?'disabled':''}></td>
     <td><input type="number" min="0" max="100" step="1" id="dDs" value="${dr.disc||0}" aria-label="Chegirma" style="width:100%" ${noDisc?'disabled':''}></td>
@@ -985,7 +994,7 @@ function renderCart(){
       else if(ms.length>1){toast(ms.length+" ta mahsulot mos keldi — ro'yxatdan tanlang");return}}
     if(p){if(p.active===false){toast('Bu mahsulot sotuvda faol emas',true);return}
       dr.pid=p.id;dr.label=p.name+(p.sku?' | '+p.sku:'');dr.price=num(p.price);if(!num(dr.qty))dr.qty=1;savePOS();
-      add.value=dr.label;$('#dPr').value=dr.price;$('#dQty').value=dr.qty;const st=stockOf(p.id,POS.wh);$('#dSt').textContent=fmtN(st,0);$('#dSt').className='n'+(st<=0?' neg':'');dSum();
+      add.value=dr.label;$('#dPr').value=dr.price;$('#dQty').value=dr.qty;const st=stockOf(p.id,POS.wh);$('#dSt').textContent=fmtN(st,0);$('#dSt').className='stk'+(st<=0?' neg':'');dSum();
       setTimeout(()=>{$('#dQty').focus();$('#dQty').select()},0);return}
     dr.pid='';savePOS();
     if(!allow('product',true)){toast("Mahsulot topilmadi. Yangi mahsulotni administrator yoki ombor mudiri qo'shadi",true);return}
@@ -998,6 +1007,40 @@ function renderCart(){
     t.draft={pid:'',label:'',qty:1,price:'',disc:0};savePOS();setTimeout(()=>{renderCart();$('#sAdd').focus()},0)};
   add.onchange=()=>pick(add.value);
   add.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(dr.pid&&add.value===dr.label)commit();else pick(add.value)}};
+const sg=$('#sgBox');let sgI=-1,sgL=[];
+const sgMatch=q=>{q=nrm(q);if(!q)return [];const ws=q.split(' ');return list('products').filter(p=>p.active!==false&&ws.every(w=>nrm(p.name+' '+(p.sku||'')+' '+(p.barcode||'')+' '+(p.brand||'')).includes(w))).slice(0,8)};
+const sgHide=()=>{if(sg){sg.hidden=true;sg.innerHTML=''}sgI=-1;sgL=[]};
+const sgPaint=()=>{sg.innerHTML=sgL.map((p,k)=>{const st=stockOf(p.id,POS.wh);return '<div class="sgi'+(k===sgI?' on':'')+'" data-k="'+k+'"><span>'+esc(p.name)+(p.sku?' <small>'+esc(p.sku)+'</small>':'')+'</span><small class="'+(st<=0?'neg':'')+'">Qoldiq: '+fmtN(st,0)+' · '+money(num(p.price))+'</small></div>'}).join('');const on=sg.querySelector('.on');if(on)on.scrollIntoView({block:'nearest'})};
+const sgShow=()=>{sgL=sgMatch(add.value);sgI=sgL.length?0:-1;if(!sgL.length){sgHide();return}const r=add.getBoundingClientRect();sg.style.left=r.left+'px';sg.style.top=(r.bottom+4)+'px';sg.style.width=Math.max(r.width,380)+'px';sg.hidden=false;sgPaint()};
+const sgPick=k=>{const p=sgL[k];if(!p)return;sgHide();pick(p.name+(p.sku?' | '+p.sku:''))};
+add.oninput=()=>{dr.pid='';sgShow()};
+add.onfocus=()=>{if(add.value&&!(dr.pid&&add.value===dr.label))sgShow()};
+add.onblur=()=>setTimeout(sgHide,150);
+sg.onmousedown=e=>{e.preventDefault();const it=e.target.closest('.sgi');if(it)sgPick(+it.dataset.k)};
+add.onkeydown=e=>{
+  if(!sg.hidden&&sgL.length){
+    if(e.key==='ArrowDown'){e.preventDefault();sgI=(sgI+1)%sgL.length;sgPaint();return}
+    if(e.key==='ArrowUp'){e.preventDefault();sgI=(sgI-1+sgL.length)%sgL.length;sgPaint();return}
+    if(e.key==='Enter'){e.preventDefault();sgPick(sgI<0?0:sgI);return}
+    if(e.key==='Escape'){sgHide();return}
+  }
+  if(e.key==='ArrowUp'){const ls=document.querySelectorAll('#sBody input[data-f="qty"]');const l=ls[ls.length-1];if(l){e.preventDefault();l.focus();l.select()}return}
+  if(e.key==='Enter'){e.preventDefault();if(dr.pid&&add.value===dr.label)commit();else pick(add.value)}
+};
+const FLD={dQty:'qty',dPr:'price',dDs:'disc'};
+$('#sBody').onkeydown=e=>{
+  const el=e.target;if(el.tagName!=='INPUT'||el.type!=='number')return;
+  const fld=el.dataset.f||FLD[el.id];if(!fld)return;
+  const isEnter=e.key==='Enter'&&el.dataset.f;
+  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&!isEnter)return;
+  e.preventDefault();
+  if(isEnter){const a=$('#sAdd');if(a)a.focus();return}
+  const rows=[...document.querySelectorAll('#sBody tr')];const ri=rows.indexOf(el.closest('tr'));
+  const tr=rows[ri+(e.key==='ArrowDown'?1:-1)];if(!tr)return;
+  const tgt=tr.querySelector('input[data-f="'+fld+'"]')||tr.querySelector(fld==='qty'?'#dQty':fld==='price'?'#dPr':'#dDs');
+  if(tgt){tgt.focus();tgt.select()}
+};
+
   $('#dQty').oninput=e=>{dr.qty=num(e.target.value);savePOS();dSum()};
   $('#dPr').oninput=e=>{dr.price=num(e.target.value);savePOS();dSum()};
   $('#dDs').oninput=e=>{dr.disc=num(e.target.value);savePOS();dSum()};
