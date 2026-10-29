@@ -370,6 +370,10 @@ nav a[data-g="1"],nav a[data-g="2"],nav a[data-g="3"]{--gc:var(--ink2)}
 .stbl td:last-child .btn{width:30px;height:30px;padding:0}
 .stbl td.n:focus{outline:2px solid #0969da;outline-offset:-2px}
 .stbl button:focus-visible{outline:2px solid #0969da;outline-offset:1px}
+.lines-ed tr.row{display:table-row}
+.lines-ed .stbl{min-width:0;width:100%}
+.lines-ed .row .lt{display:inline}
+.lines-ed .stbl td{height:44px}
 </style>
 </head>
 <body>
@@ -1559,14 +1563,14 @@ function lineEditor(o,{withPrice,wh,priceOf}){
   const leNew=(l,v)=>{if(document.querySelector('.ov #f_name'))return;productForm(null,{name:v||'',after:id=>{const p=S.products[id];if(!p)return;l.pid=id;l.label=p.name+(p.sku?' | '+p.sku:'');l.qty=num(l.qty)||1;if(withPrice&&!num(l.price))l.price=(priceOf?priceOf(p):lastPurchase(p.id))||'';draw();o.dispatchEvent(new Event('lines'));
     const qi=$$('[data-q]',box)[lines.indexOf(l)];if(qi)setTimeout(()=>{qi.focus();qi.select()},0)}})};
   const draw=()=>{
-    box.innerHTML=`<datalist id="plist">${productOptions()}</datalist>`+lines.map((l,i)=>`<div class="row"><input type="text" list="plist" data-p="${i}" value="${esc(l.label||'')}" placeholder="Mahsulot nomi, artikul yoki shtrix-kod"><input type="number" min="0" step="1" data-q="${i}" value="${l.qty||''}" placeholder="Soni">${withPrice?`<input type="number" min="0" step="0.01" data-pr="${i}" value="${l.price||''}" placeholder="Narx ${base()}">`:`<span class="muted lt">${l.pid?'Qoldiq: '+fmtN(stockOf(l.pid,wh()),0):''}</span>`}<span class="muted lt" style="text-align:right">${withPrice&&l.pid?money(num(l.qty)*num(l.price)):''}</span><button class="btn sm" data-x="${i}" aria-label="O'chirish">×</button></div>`).join('')+(allow('product',true)?`<button class="btn sm" id="newProdL" title="Katalogda yo'q mahsulotni qo'shish" style="margin-right:6px">+ Yangi mahsulot</button>`:'')+`<button class="btn sm" id="addLine">+ Qator qo'shish</button>`;
+    box.innerHTML=`<datalist id="plist">${productOptions()}</datalist><div class="tbl-wrap"><table class="stbl"><thead><tr><th>#</th><th>Mahsulot</th><th style="width:100px">Soni</th>${withPrice?`<th style="width:120px">Narx ${base()}</th><th class="n" style="width:110px">Summa</th>`:`<th class="n" style="width:110px">Qoldiq</th>`}<th style="width:44px"></th></tr></thead><tbody>`+lines.map((l,i)=>`<tr class="row"><td>${i+1}</td><td><input type="text" list="plist" data-p="${i}" value="${esc(l.label||'')}" placeholder="Mahsulot nomi, artikul yoki shtrix-kod">${withPrice?`<small class="stk">${l.pid?'Qoldiq: '+fmtN(stockOf(l.pid,wh()),0):''}</small>`:''}</td><td><input type="number" min="0" step="1" data-q="${i}" value="${l.qty||''}" placeholder="Soni"></td>${withPrice?`<td><input type="number" min="0" step="0.01" data-pr="${i}" value="${l.price||''}" placeholder="Narx ${base()}"></td><td class="n"><span class="lt">${l.pid?money(num(l.qty)*num(l.price)):''}</span></td>`:`<td class="n"><span class="muted lt">${l.pid?'Qoldiq: '+fmtN(stockOf(l.pid,wh()),0):''}</span></td>`}<td><button class="btn sm" data-x="${i}" aria-label="O'chirish">×</button></td></tr>`).join('')+'</tbody></table></div>'+(allow('product',true)?`<button class="btn sm" id="newProdL" title="Katalogda yo'q mahsulotni qo'shish" style="margin-right:6px">+ Yangi mahsulot</button>`:'')+`<button class="btn sm" id="addLine">+ Qator qo'shish</button>`;
     $$('[data-p]',box).forEach(inp=>inp.onchange=()=>{const l=lines[+inp.dataset.p];const row=inp.closest('.row');const p=findProduct(inp.value);l.label=inp.value;
-      if(p){l.pid=p.id;l.label=p.name+(p.sku?' | '+p.sku:'');inp.value=l.label;
+      if(p){l.pid=p.id;l.label=p.name+(p.sku?' | '+p.sku:'');inp.value=l.label;{const sk=row.querySelector('.stk');if(sk)sk.textContent='Qoldiq: '+fmtN(stockOf(p.id,wh()),0)}
         const qi=row.querySelector('[data-q]');if(num(qi.value)>0)l.qty=num(qi.value);else{l.qty=num(l.qty)||1;qi.value=l.qty}
         const pi=row.querySelector('[data-pr]');if(pi){if(num(pi.value)>0)l.price=num(pi.value);else{if(!num(l.price))l.price=(priceOf?priceOf(p):lastPurchase(p.id))||'';pi.value=l.price}}
         const lt=row.querySelectorAll('.lt');if(withPrice){if(lt.length)lt[lt.length-1].textContent=money(num(l.qty)*num(l.price))}else if(lt.length)lt[0].textContent='Qoldiq: '+fmtN(stockOf(p.id,wh()),0);
         setTimeout(()=>{const a=document.activeElement;if(!row.contains(a)||a===qi||a===inp){qi.focus();qi.select()}},0)}
-      else{l.pid=null;const v=inp.value.trim();if(v){if(allow('product',true))leNew(l,v);else toast("Mahsulot topilmadi. Yangi mahsulotni administrator yoki ombor mudiri qo'shadi",true)}}
+      else{l.pid=null;const v=inp.value.trim();{const sk=row.querySelector('.stk');if(sk)sk.textContent=''}if(v){if(allow('product',true))leNew(l,v);else toast("Mahsulot topilmadi. Yangi mahsulotni administrator yoki ombor mudiri qo'shadi",true)}}
       o.dispatchEvent(new Event('lines'))});
     const ls=inp=>{if(!withPrice)return;const i=+(inp.dataset.q??inp.dataset.pr);const l=lines[i];const c=inp.closest('.row').querySelectorAll('.lt');if(c.length&&l.pid)c[c.length-1].textContent=money(num(l.qty)*num(l.price))};
     $$('[data-q]',box).forEach(inp=>inp.oninput=()=>{lines[+inp.dataset.q].qty=num(inp.value);ls(inp);o.dispatchEvent(new Event('lines'))});
@@ -1575,6 +1579,18 @@ function lineEditor(o,{withPrice,wh,priceOf}){
     if($('#newProdL',box))$('#newProdL',box).onclick=()=>{let l=lines.find(x=>!x.pid&&!String(x.label||'').trim());if(!l){l={};lines.push(l)}leNew(l,'')};
     $('#addLine',box).onclick=()=>{lines.push({});draw();const ins=$$('[data-p]',box);ins[ins.length-1].focus()};
   };
+  box.onkeydown=e=>{
+  const el=e.target;const k=e.key;if(!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].includes(k)||e.defaultPrevented)return;
+  const td=el.closest('td');if(!td||!['INPUT','BUTTON'].includes(el.tagName))return;
+  if(el.type==='text'){const s0=el.selectionStart,s1=el.selectionEnd;if(k==='ArrowRight'&&!(s0===el.value.length&&s1===s0))return;if(k==='ArrowLeft'&&!(s0===0&&s1===0))return;if((k==='ArrowUp'||k==='ArrowDown')&&el.value&&!(lines[+el.dataset.p]&&lines[+el.dataset.p].pid))return}
+  e.preventDefault();
+  const rows=[...box.querySelectorAll('tbody tr')];const tr=td.parentElement;const ri=rows.indexOf(tr);
+  const cells=r=>[...r.children].slice(1).map(c=>c.querySelector('input,button'));
+  const cs=cells(tr);const ci=[...tr.children].indexOf(td)-1;let tgt=null;
+  if(k==='ArrowLeft'||k==='ArrowRight'){const d=k==='ArrowRight'?1:-1;for(let c=ci+d;c>=0&&c<cs.length;c+=d){if(cs[c]){tgt=cs[c];break}}}
+  else{const d=k==='ArrowDown'?1:-1;const r=ri+d;if(r>=0&&r<rows.length)tgt=cells(rows[r])[ci]||null;else if(d>0&&lines[ri]&&lines[ri].pid){$('#addLine',box).click();return}}
+  if(tgt){tgt.focus();if(tgt.select)tgt.select()}
+};
   lines.push({});draw();
   return {lines,valid:()=>lines.filter(l=>l.pid&&num(l.qty)>0).map(l=>({pid:l.pid,name:pname(l.pid),qty:num(l.qty),price:num(l.price)})),redraw:draw};
 }
