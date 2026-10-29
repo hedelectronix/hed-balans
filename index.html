@@ -890,7 +890,7 @@ VIEWS.pos=()=>{
     <div class="ctabs" id="saleTabs"></div>${curTab().orderNo?`<div class="warnbox" style="margin:0 0 10px">Hed zakaz <b>${esc(curTab().orderNo)}</b> sotuvga aylantirilmoqda${curTab().orderPay==='debt'?' (qarzga)':''}. Saqlanganda zakaz «Chiqarildi» bo'ladi.</div>`:''}
     <div class="sale-head">
       <label class="field"><span>Mijoz *</span><div style="display:flex;gap:6px;min-width:0"><select id="sCli" style="flex:1;min-width:0"></select><button type="button" class="btn" id="sCliNew" title="Yangi mijoz qo'shish">+ Mijoz</button></div><small id="sCliBal" class="muted"></small></label>
-      <label class="field"><span>Sotuv sanasi</span><input type="text" value="${fdt(today())}" disabled></label>
+      <label class="field"><span>Sotuv sanasi</span><input type="date" id="sDate" value="${curTab().date||today()}"></label>
       <label class="field"><span>Ombor</span><select id="sWh">${whs.map(w=>`<option value="${w.id}" ${w.id===POS.wh?'selected':''}>${esc(w.name)}</option>`).join('')}</select></label>
     </div>
     <datalist id="posPL"></datalist>
@@ -903,7 +903,7 @@ VIEWS.pos=()=>{
   $('#posRet').onclick=returnPicker;
   $('#sWh').onchange=e=>{POS.wh=e.target.value;savePOS();renderCart()};
   $('#sNote').oninput=e=>{curTab().note=e.target.value;savePOS()};
-  $('#sClear').onclick=()=>{const t=curTab();t.lines=[];t.note='';delete t.order;delete t.orderNo;delete t.orderPay;$('#sNote').value='';savePOS();VIEWS.pos()};
+  $('#sClear').onclick=()=>{const t=curTab();t.lines=[];t.note='';delete t.date;delete t.order;delete t.orderNo;delete t.orderPay;$('#sNote').value='';savePOS();VIEWS.pos()};
   $('#sPay').onclick=()=>{const t=curTab(),dr=t.draft;if(dr&&dr.pid&&num(dr.qty)>0){t.lines.push({pid:dr.pid,qty:num(dr.qty),price:num(dr.price),disc:num(dr.disc)});t.draft={pid:'',label:'',qty:1,price:'',disc:0};savePOS();renderCart()}payModal()};
   renderCart();
 };
@@ -932,6 +932,7 @@ function renderCart(){
   if(!$('#sBody'))return;
   const t=curTab();
   $('#saleTabs').innerHTML=POS.tabs.map((x,i)=>`<button data-tab="${i}" class="${i===POS.active?'on':''}">${x.orderNo?'Zakaz '+esc(x.orderNo):'Sotuv '+x.id}${x.lines.length?' ('+x.lines.length+')':''}</button>`).join('')+`<button id="tabNew" title="Parallel yangi sotuv">+</button>${POS.tabs.length>1?'<button id="tabDel">Yopish</button>':''}`;
+  {const _sd=$('#sDate');if(_sd)_sd.onchange=e=>{const tt=curTab();if(e.target.value&&e.target.value!==today())tt.date=e.target.value;else delete tt.date;savePOS()}}
   $$('[data-tab]').forEach(b=>b.onclick=()=>{POS.active=+b.dataset.tab;savePOS();VIEWS.pos()});
   $('#tabNew').onclick=()=>{POS.tabs.push({id:Math.max(...POS.tabs.map(x=>x.id))+1,lines:[],cid:''});POS.active=POS.tabs.length-1;savePOS();VIEWS.pos()};
   if($('#tabDel'))$('#tabDel').onclick=()=>{POS.tabs.splice(POS.active,1);POS.active=Math.max(0,POS.active-1);savePOS();VIEWS.pos()};
@@ -1024,7 +1025,7 @@ function payModal(){
     const payments=$$('[data-cb]',o).filter(i=>num(i.value)>0).map(i=>({cb:i.dataset.cb,amount:num(i.value),currency:cbx(i.dataset.cb).currency}));
     if(debt()&&lf>0.009)payments.push({cb:BAL,amount:r2(lf),currency:base()});
     const isDebt=payments.some(p=>p.cb===BAL);
-    const doc={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date:today(),createdAt:nowISO(),by:me().name,byId:me().id,wh:POS.wh,cid:t.cid||'',rate:rate(),
+    const doc={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date:(t.date||today()),createdAt:nowISO(),by:me().name,byId:me().id,wh:POS.wh,cid:t.cid||'',rate:rate(),
       lines:t.lines.map(l=>({pid:l.pid,name:pname(l.pid),qty:num(l.qty),price:num(l.price),disc:num(l.disc),cost:r2(D.cost[l.pid]||lastPurchase(l.pid)||0)})),payments,total,note:$('#payNote',o).value};
     if(isDebt)doc.debt=true;
     if(t.order)doc.order=t.order;
@@ -1032,7 +1033,7 @@ function payModal(){
     const tabIdx=POS.active;
     if(isDebt&&cli&&!cli.balanceOn)await putMaster('contragents',{...cli,balanceOn:true});
     await appendItem(doc);
-    if(POS.tabs[tabIdx]){const tb=POS.tabs[tabIdx];tb.lines=[];tb.cid='';tb.note='';const wasOrder=tb.order;delete tb.order;delete tb.orderNo;delete tb.orderPay;if(wasOrder&&ui&&ui.of)ui.of.list=null;savePOS();if(page==='pos')render()}
+    if(POS.tabs[tabIdx]){const tb=POS.tabs[tabIdx];tb.lines=[];tb.cid='';tb.note='';delete tb.date;const wasOrder=tb.order;delete tb.order;delete tb.orderNo;delete tb.orderPay;if(wasOrder&&ui&&ui.of)ui.of.list=null;savePOS();if(page==='pos')render()}
     toast('Sotuv saqlandi: '+doc.no+(isDebt?' (qarzga)':''));
     receiptModal(doc);
   };
