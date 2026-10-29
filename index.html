@@ -1047,16 +1047,17 @@ add.onkeydown=e=>{
 };
 const FLD={dQty:'qty',dPr:'price',dDs:'disc'};
 $('#sBody').onkeydown=e=>{
-  const el=e.target;if(el.tagName!=='INPUT'||el.type!=='number')return;
-  const fld=el.dataset.f||FLD[el.id];if(!fld)return;
-  const isEnter=e.key==='Enter'&&el.dataset.f;
-  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&!isEnter)return;
+  const el=e.target;if(el.tagName!=='INPUT')return;const k=e.key;
+  if(k==='Enter'&&el.dataset.f){e.preventDefault();const a=$('#sAdd');if(a)a.focus();return}
+  if(!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].includes(k)||e.defaultPrevented)return;
+  if(el.type==='text'){const s0=el.selectionStart,s1=el.selectionEnd;if(k==='ArrowRight'&&!(s0===el.value.length&&s1===s0))return;if(k==='ArrowLeft'&&!(s0===0&&s1===0))return}
   e.preventDefault();
-  if(isEnter){const a=$('#sAdd');if(a)a.focus();return}
-  const rows=[...document.querySelectorAll('#sBody tr')];const ri=rows.indexOf(el.closest('tr'));
-  const tr=rows[ri+(e.key==='ArrowDown'?1:-1)];if(!tr)return;
-  const tgt=tr.querySelector('input[data-f="'+fld+'"]')||tr.querySelector(fld==='qty'?'#dQty':fld==='price'?'#dPr':'#dDs');
-  if(tgt){tgt.focus();tgt.select()}
+  const rows=[...document.querySelectorAll('#sBody tr')];const tr=el.closest('tr');const ri=rows.indexOf(tr);
+  const cells=r=>{const a=[...r.querySelectorAll('input')];return r.classList.contains('addrow')?a:[null,...a]};
+  const cs=cells(tr);const ci=cs.indexOf(el);let tgt=null;
+  if(k==='ArrowLeft'||k==='ArrowRight'){const d=k==='ArrowRight'?1:-1;for(let c=ci+d;c>=0&&c<cs.length;c+=d){if(cs[c]&&!cs[c].disabled){tgt=cs[c];break}}}
+  else{const d=k==='ArrowDown'?1:-1;for(let r=ri+d;r>=0&&r<rows.length&&!tgt;r+=d){const x=cells(rows[r]);let c=x[ci]&&!x[ci].disabled?x[ci]:null;if(!c&&ci===0)c=x.find(y=>y&&!y.disabled);if(c)tgt=c}}
+  if(tgt){tgt.focus();if(tgt.select)tgt.select()}
 };
 
   $('#dQty').oninput=e=>{dr.qty=num(e.target.value);savePOS();dSum()};
