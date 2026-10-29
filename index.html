@@ -15,11 +15,11 @@
 <style>
 :root{
   /* Hed balans — kulrang va oq palitra, qora rang ishlatilmaydi. Rejimni faqat ilovadagi tugma o'zgartiradi. */
-  --bg:#F2F3F5; --panel:#FFFFFF; --soft:#F7F8FA; --line:#D7DAE0; --ink:#3A3F47; --ink2:#6B7178;
+  --bg:#F2F3F5; --panel:#FFFFFF; --soft:#F7F8FA; --line:#D7DAE0; --ink:#2F343B; --ink2:#575D65;
   --acc:#6B7178; --accInk:#FFFFFF; --accSoft:#ECEEF1; --accLine:#A9AEB4;
   --glow:none;
   --vio:#6B7178; --vioSoft:#ECEEF1;
-  --ok:#2E7D4F; --okSoft:#EAF4EE; --warn:#9A6A12; --warnSoft:#F8F1E2; --bad:#B42318; --badSoft:#FBECEA; --badInk:#FFFFFF; --blue:#6B7178;
+  --ok:#2E7D4F; --okSoft:#EAF4EE; --warn:#85590A; --warnSoft:#F8F1E2; --bad:#B42318; --badSoft:#FBECEA; --badInk:#FFFFFF; --blue:#6B7178;
   --hdrBg:#E6E8EB; --hdrInk:#5F6670; --hdrHi:#3A3F47; --hdrLine:rgba(58,63,71,.16); --hdrBtn:rgba(255,255,255,.7);
   --side:#E6E8EB; --sideInk:#5F6670; --sideHi:#3A3F47;
   --hero:#FFFFFF; --heroInk:#3A3F47; --heroMute:#6B7178; --tile:#F7F8FA; --tileLine:#E3E6EA;
@@ -29,7 +29,7 @@
 }
 :root[data-hbmode="night"]{
   /* Tungi rejim — o'rta kulrang, qora emas. Faqat ilovadagi tugma bilan yoqiladi */
-  --bg:#50555D; --panel:#5B6068; --soft:#646971; --line:#767C84; --ink:#F7F8FA; --ink2:#DADDE1;
+  --bg:#50555D; --panel:#5B6068; --soft:#646971; --line:#767C84; --ink:#FFFFFF; --ink2:#EBEDF0;
   --acc:#E9EBEE; --accInk:#3A3F47; --accSoft:#646971; --accLine:#8B9097;
   --vio:#DADDE1; --vioSoft:#646971;
   --ok:#8EDDB0; --okSoft:rgba(142,221,176,.16); --warn:#F0C46A; --warnSoft:rgba(240,196,106,.16); --bad:#FF9E95; --badSoft:rgba(255,158,149,.16); --badInk:#3A3F47; --blue:#DADDE1;
@@ -1748,7 +1748,7 @@ VIEWS.stock=()=>{
   let tc=0,tp=0;ps.forEach(p=>{const s=stockOf(p.id);tc+=s*(D.cost[p.id]||0);tp+=s*num(p.price)});
   const isOpen=k=>ui.q?true:!!(ui.cats&&ui.cats[k]);
   const cname0=p=>p.category||'Kategoriyasiz';
-  const grp=(arr,fn)=>{const g={},order=[];arr.forEach(p=>{const k=cname0(p);if(!g[k]){g[k]=[];order.push(k)}g[k].push(p)});return order.map(k=>{const items=g[k],open=isOpen(k);const qty=items.reduce((s,p)=>s+stockOf(p.id),0),val=items.reduce((s,p)=>s+stockOf(p.id)*(D.cost[p.id]||0),0);return `<tr class="cat click" data-cat="${esc(k)}" style="background:var(--bg2,#f1f1f1);font-weight:600"><td colspan="${2+whs.length}">${open?'▾':'▸'} ${esc(k)} <span class="muted">(${items.length})</span></td><td class="n">${fmtN(qty,0)}</td><td></td><td class="n">${money(val)}</td></tr>`+items.map(p=>fn(p).replace('<tr class="click"','<tr class="click"'+(open?'':' style="display:none"'))).join('')}).join('')};
+  const grp=(arr,fn)=>{const g={},order=[];arr.forEach(p=>{const k=cname0(p);if(!g[k]){g[k]=[];order.push(k)}g[k].push(p)});return order.map(k=>{const items=g[k],open=isOpen(k);const qty=items.reduce((s,p)=>s+stockOf(p.id),0),val=items.reduce((s,p)=>s+stockOf(p.id)*(D.cost[p.id]||0),0);return `<tr class="cat click" data-cat="${esc(k)}" style="background:var(--accSoft);color:var(--ink);font-weight:600"><td colspan="${2+whs.length}">${open?'▾':'▸'} ${esc(k)} <span class="muted">(${items.length})</span></td><td class="n">${fmtN(qty,0)}</td><td></td><td class="n">${money(val)}</td></tr>`+items.map(p=>fn(p).replace('<tr class="click"','<tr class="click"'+(open?'':' style="display:none"'))).join('')}).join('')};
   actions(`<button class="btn" id="stOpenAll">Hammasini ochish</button><button class="btn" id="stCloseAll">Yopish</button><button class="btn" id="stExp">Excel (CSV)</button>`);
   C(`<div class="grid g3" style="margin-bottom:12px"><div class="card kpi"><div class="l">Tannarxda</div><div class="v">${money(tc)}</div></div><div class="card kpi"><div class="l">Sotish narxida</div><div class="v">${money(tp)}</div></div><div class="card kpi"><div class="l">Kutilayotgan ustama</div><div class="v">${money(tp-tc)}</div></div></div>
    <div class="bar"><input type="search" id="stQ" class="grow" placeholder="Qidirish" value="${esc(ui.q||'')}"><label><input type="checkbox" id="stPos" ${onlyPos?'checked':''}> Faqat qoldig'i borlar</label></div>
