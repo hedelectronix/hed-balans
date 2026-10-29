@@ -1207,6 +1207,7 @@ function showDoc(id){
     o.close();await appendItem({kind:'cancel',id:uid('c'),target:d.id,at:nowISO(),by:me().name,byId:me().id,note:r.note});toast('Bekor qilindi');
   };
 }
+function delDoc(d){showDoc(d.id);setTimeout(()=>{const b=document.querySelector('#dCancel');if(b)b.click()},150)}
 function returnedOf(d){const r={};actives('return').filter(x=>x.ref===d.id).forEach(x=>x.lines.forEach(l=>r[l.pid]=(r[l.pid]||0)+num(l.qty)));return r}
 function returnModal(d,returned){if(!allow('return'))return;returned=returned||returnedOf(d);
   const cbs=list('cashboxes');
@@ -1544,8 +1545,8 @@ VIEWS.sales=()=>{
   $$('[data-cli]').forEach(a=>a.onclick=e=>{e.stopPropagation();showContragent(a.dataset.cli)});
   $$('[data-rowm]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=D.byId[b.dataset.rowm];if($('.ddm')){closeDD();return}
     const items=[['view',"Ko'rish",'Tafsilotlar va tarix'],['chek','Chek','Chop etish yoki Telegramga yuborish']];
-    if(d.type==='sale'&&d.status==='active')items.push(['ret','Qaytarish','Shu chekdan tovar qaytarish']);
-    ddMenu(b,items,k=>{if(k==='view')showDoc(d.id);if(k==='chek')receiptModal(d);if(k==='ret')returnModal(d)})});
+    if(d.type==='sale'&&d.status==='active')items.push(['ret','Qaytarish','Shu chekdan tovar qaytarish']);if(d.status==='active'&&(isAdmin()||d.byId===me().id))items.push(['del',"O'chirish (bekor qilish)","Hujjat bekor bo'ladi, tovar va pul qaytariladi"]);
+    ddMenu(b,items,k=>{if(k==='view')showDoc(d.id);if(k==='chek')receiptModal(d);if(k==='ret')returnModal(d);if(k==='del')delDoc(d)})});
   $('#slCols').onclick=e=>{e.stopPropagation();if($('.ddm')){closeDD();return}const r=e.currentTarget.getBoundingClientRect();const m=document.createElement('div');m.className='ddm';
     m.innerHTML=`<div style="padding:6px 10px;font-weight:700">Ustunlar</div>`+SL_COLS.map(([k,t])=>`<label class="colopt"><input type="checkbox" data-col="${k}" ${vis[k]?'checked':''}> ${t}</label>`).join('');
     m.style.top=(r.bottom+4)+'px';m.style.left=Math.max(8,r.right-240)+'px';document.body.appendChild(m);
@@ -1654,8 +1655,8 @@ VIEWS.purchases=()=>{
   $$('[data-cli]').forEach(a=>a.onclick=e=>{e.stopPropagation();showContragent(a.dataset.cli)});
   $$('[data-rowm]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=D.byId[b.dataset.rowm];if($('.ddm')){closeDD();return}
     const items=[['view',"Ko'rish",'Tafsilotlar va tarix']];
-    if(d.type==='purchase'&&d.status==='active')items.push(['sret',"Ta'minotchiga qaytarish",'Shu xariddan tovar qaytarish']);
-    ddMenu(b,items,k=>{if(k==='view')showDoc(d.id);if(k==='sret')supReturnModal(d)})});
+    if(d.type==='purchase'&&d.status==='active')items.push(['sret',"Ta'minotchiga qaytarish",'Shu xariddan tovar qaytarish']);if(d.status==='active'&&(isAdmin()||d.byId===me().id))items.push(['del',"O'chirish (bekor qilish)","Hujjat bekor bo'ladi, tovar va pul qaytariladi"]);
+    ddMenu(b,items,k=>{if(k==='view')showDoc(d.id);if(k==='sret')supReturnModal(d);if(k==='del')delDoc(d)})});
   $('#puCols').onclick=e=>{e.stopPropagation();if($('.ddm')){closeDD();return}const r=e.currentTarget.getBoundingClientRect();const m=document.createElement('div');m.className='ddm';
     m.innerHTML=`<div style="padding:6px 10px;font-weight:700">Ustunlar</div>`+PU_COLS.map(([k,t])=>`<label class="colopt"><input type="checkbox" data-col="${k}" ${vis[k]?'checked':''}> ${t}</label>`).join('');
     m.style.top=(r.bottom+4)+'px';m.style.left=Math.max(8,r.right-240)+'px';document.body.appendChild(m);
