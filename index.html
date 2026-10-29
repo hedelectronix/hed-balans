@@ -15,28 +15,28 @@
 <style>
 :root{
   /* Hed balans — kulrang va oq palitra, qora rang ishlatilmaydi. Rejimni faqat ilovadagi tugma o'zgartiradi. */
-  --bg:#F2F3F5; --panel:#FFFFFF; --soft:#F7F8FA; --line:#D7DAE0; --ink:#2F343B; --ink2:#575D65;
-  --acc:#6B7178; --accInk:#FFFFFF; --accSoft:#ECEEF1; --accLine:#A9AEB4;
+  --bg:#F6F8FA; --panel:#FFFFFF; --soft:#F6F8FA; --line:#D0D7DE; --ink:#1F2328; --ink2:#59636E;
+  --acc:#0969DA; --accInk:#FFFFFF; --accSoft:#DDF4FF; --accLine:#54AEFF;
   --glow:none;
-  --vio:#6B7178; --vioSoft:#ECEEF1;
-  --ok:#2E7D4F; --okSoft:#EAF4EE; --warn:#85590A; --warnSoft:#F8F1E2; --bad:#B42318; --badSoft:#FBECEA; --badInk:#FFFFFF; --blue:#6B7178;
-  --hdrBg:#E6E8EB; --hdrInk:#5F6670; --hdrHi:#3A3F47; --hdrLine:rgba(58,63,71,.16); --hdrBtn:rgba(255,255,255,.7);
-  --side:#E6E8EB; --sideInk:#5F6670; --sideHi:#3A3F47;
-  --hero:#FFFFFF; --heroInk:#3A3F47; --heroMute:#6B7178; --tile:#F7F8FA; --tileLine:#E3E6EA;
-  --overlay:rgba(107,113,120,.40); --shadow:0 18px 50px rgba(58,63,71,.14);
+  --vio:#0969DA; --vioSoft:#DDF4FF;
+  --ok:#116329; --okSoft:#DAFBE1; --warn:#7D4E00; --warnSoft:#FFF8C5; --bad:#CF222E; --badSoft:#FFEBE9; --badInk:#FFFFFF; --blue:#0969DA;
+  --hdrBg:#F6F8FA; --hdrInk:#59636E; --hdrHi:#1F2328; --hdrLine:rgba(31,35,40,.15); --hdrBtn:rgba(208,215,222,.35);
+  --side:#F6F8FA; --sideInk:#59636E; --sideHi:#1F2328;
+  --hero:#FFFFFF; --heroInk:#1F2328; --heroMute:#59636E; --tile:#F6F8FA; --tileLine:#D8DEE4;
+  --overlay:rgba(31,35,40,.4); --shadow:0 8px 24px rgba(140,149,159,.2);
   color-scheme:light;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 :root[data-hbmode="night"]{
   /* Tungi rejim — o'rta kulrang, qora emas. Faqat ilovadagi tugma bilan yoqiladi */
-  --bg:#50555D; --panel:#5B6068; --soft:#646971; --line:#767C84; --ink:#FFFFFF; --ink2:#EBEDF0;
-  --acc:#E9EBEE; --accInk:#3A3F47; --accSoft:#646971; --accLine:#8B9097;
-  --vio:#DADDE1; --vioSoft:#646971;
-  --ok:#B0F0CB; --okSoft:rgba(142,221,176,.16); --warn:#F8DA94; --warnSoft:rgba(240,196,106,.16); --bad:#FFC0BA; --badSoft:rgba(255,158,149,.16); --badInk:#3A3F47; --blue:#DADDE1;
-  --hdrBg:#474C53; --hdrInk:#DADDE1; --hdrHi:#FFFFFF; --hdrLine:rgba(255,255,255,.16); --hdrBtn:rgba(255,255,255,.08);
-  --side:#474C53; --sideInk:#DADDE1; --sideHi:#FFFFFF;
-  --hero:#5B6068; --heroInk:#F7F8FA; --heroMute:#DADDE1; --tile:#646971; --tileLine:#767C84;
-  --overlay:rgba(58,63,71,.45); --shadow:0 18px 50px rgba(40,44,48,.30);
+  --bg:#22272E; --panel:#2D333B; --soft:#373E47; --line:#444C56; --ink:#CDD9E5; --ink2:#A6B2BE;
+  --acc:#539BF5; --accInk:#22272E; --accSoft:rgba(83,155,245,.2); --accLine:#316DCA;
+  --vio:#539BF5; --vioSoft:rgba(83,155,245,.2);
+  --ok:#6BC46D; --okSoft:rgba(87,171,90,.2); --warn:#DAAA3F; --warnSoft:rgba(198,144,38,.2); --bad:#FF938A; --badSoft:rgba(244,112,103,.2); --badInk:#22272E; --blue:#539BF5;
+  --hdrBg:#2D333B; --hdrInk:#A6B2BE; --hdrHi:#CDD9E5; --hdrLine:rgba(205,217,229,.16); --hdrBtn:rgba(205,217,229,.1);
+  --side:#2D333B; --sideInk:#A6B2BE; --sideHi:#CDD9E5;
+  --hero:#2D333B; --heroInk:#CDD9E5; --heroMute:#A6B2BE; --tile:#373E47; --tileLine:#444C56;
+  --overlay:rgba(34,39,46,.6); --shadow:0 8px 24px rgba(1,4,9,.4);
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
@@ -349,6 +349,25 @@ input[type=date]{cursor:pointer}
 .sgbox .sgi.on,.sgbox .sgi:hover{background:var(--accSoft)}
 .sgbox .sgi small{color:var(--ink2);white-space:nowrap}
 .sgbox .sgi small.neg{color:var(--bad)}
+nav a.on{color:var(--hdrHi);background:var(--panel);box-shadow:0 0 0 1px var(--line)}
+nav a.on::before{background:var(--acc);opacity:1}
+nav a{--gc:var(--ink2)}
+nav a[data-g="1"],nav a[data-g="2"],nav a[data-g="3"]{--gc:var(--ink2)}
+.btn.pri{background:#1F883D;border-color:rgba(31,35,40,.15);color:#FFFFFF}
+.btn.pri:hover:not(:disabled){background:#1A7F37}
+.btn.pri:disabled{opacity:.6}
+:root[data-hbmode="night"] .btn.pri{background:#347D39;border-color:rgba(205,217,229,.2)}
+:root[data-hbmode="night"] .btn.pri:hover:not(:disabled){background:#2E6F32}
+.stbl{border-collapse:collapse;table-layout:fixed;min-width:620px}
+.stbl th,.stbl td{border:1px solid var(--line);padding:0;vertical-align:middle;height:40px}
+.stbl th{padding:6px 8px;font-size:12px;font-weight:700;text-align:left}
+.stbl th.n,.stbl td.n{text-align:right;padding:0 8px}
+.stbl td:first-child,.stbl th:first-child{width:40px;text-align:center;background:var(--soft);color:var(--ink2);font-size:12px;font-weight:700}
+.stbl td:nth-child(2){padding:5px 8px;min-width:0}
+.stbl input{border:0;border-radius:0;background:transparent;width:100%;height:100%;padding:8px;box-shadow:none}
+.stbl input:focus{outline:2px solid var(--acc);outline-offset:-2px;background:var(--panel)}
+.stbl td:last-child{text-align:center;width:44px}
+.stbl td:last-child .btn{width:30px;height:30px;padding:0}
 </style>
 </head>
 <body>
