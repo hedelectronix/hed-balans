@@ -549,10 +549,10 @@ const PAGES=[
  ['Asosiy',[['dash','Bosh panel'],['pos','Sotuv'],['sales','Sotuvlar'],['orders','Zakazlar']]],
  ['Tovar',[['products','Mahsulotlar'],['stock','Ombor qoldiqlari'],['purchases','Xaridlar'],['transfers',"Ombordan omborga"],['inventory','Inventarizatsiya']]],
  ['Hisob',[['contragents','Mijoz va ta\'minotchilar'],['cash','Pullar va kassalar'],['daycash','Kunlik kassa'],['expenses','Xarajatlar'],['reports','Hisobotlar'],['journal',"O'zgarishlar tarixi"]]],
- ['Tizim',[['settings','Sozlamalar']]]
+ ['Tizim',[['settings','Sozlamalar'],['trash',"O'chirish chelagi"]]]
 ];
 const TITLES=Object.fromEntries(PAGES.flatMap(g=>g[1]));
-const SHORT={daycash:'Kunlik kassa',inventory:'Inventar',stock:'Qoldiqlar',transfers:"Ko'chirish",contragents:'Kontragentlar',cash:'Kassalar',journal:'Tarix',pos:'Sotuv'};
+const SHORT={daycash:'Kunlik kassa',inventory:'Inventar',stock:'Qoldiqlar',transfers:"Ko'chirish",contragents:'Kontragentlar',cash:'Kassalar',journal:'Tarix',pos:'Sotuv',trash:'Chelak'};
 let page=lsGet('hb_page','dash');
 let ui={}; // per-page ui state
 let dirty=false;
@@ -1207,7 +1207,28 @@ function showDoc(id){
     o.close();await appendItem({kind:'cancel',id:uid('c'),target:d.id,at:nowISO(),by:me().name,byId:me().id,note:r.note});toast('Bekor qilindi');
   };
 }
-function delDoc(d){showDoc(d.id);setTimeout(()=>{const b=document.querySelector('#dCancel');if(b)b.click()},150)}
+const trashed=d=>!!(S.config&&S.config.trash&&S.config.trash[d.id]);
+async function delDoc(d){
+  if(!isAdmin()){toast("O'chirishni faqat administrator qila oladi",true);return}
+  if(d.status==='active'){
+    if(isClosed(d.date)){toast('Bu sana yopilgan davrga kiradi',true);return}
+    if(d.type==='sale'&&actives('return').some(r=>r.ref===d.id)){toast('Avval shu sotuvga qilingan qaytarishlarni bekor qiling',true);return}
+    if(d.type==='purchase'&&actives('supplier_return').some(r=>r.ref===d.id)){toast('Avval shu xaridga qilingan qaytarishlarni bekor qiling',true);return}
+    const ce=cancelErr(d);if(ce){toast(ce,true);return}
+  }
+  const T=(TYPES[d.type]||[d.type])[0];
+  const ok=await new Promise(res=>{
+    const o=modal(`<h2>Rostdan o'chirasizmi?</h2><p>${esc(T)} ${esc(d.no)}${d.status==='active'?" avval bekor qilinadi (tovar va pul qaytadi), so'ng":''} o'chirish chelagiga tushadi. Keyin uni chelakdan tiklash mumkin.</p><div class="mfoot"><button class="btn" id="tdNo">Bekor qilish</button><button class="btn danger" id="tdOk">O'chirish</button></div>`);
+    let done=false;const fin=v=>{if(done)return;done=true;o.close();res(v)};
+    $('#tdNo',o).onclick=()=>fin(false);$('#tdOk',o).onclick=()=>fin(true);
+  });
+  if(!ok)return;
+  try{
+    if(d.status==='active')await appendItem({kind:'cancel',id:uid('c'),target:d.id,at:nowISO(),by:me().name,byId:me().id,note:"O'chirildi"});
+    await putConfig({trash:{...(S.config.trash||{}),[d.id]:{at:nowISO(),by:me().name}}});
+    toast("O'chirish chelagiga ko'chirildi");
+  }catch(err){toast("O'chirib bo'lmadi: "+(err.message||err),true)}
+}
 function returnedOf(d){const r={};actives('return').filter(x=>x.ref===d.id).forEach(x=>x.lines.forEach(l=>r[l.pid]=(r[l.pid]||0)+num(l.qty)));return r}
 function returnModal(d,returned){if(!allow('return'))return;returned=returned||returnedOf(d);
   const cbs=list('cashboxes');
@@ -1315,7 +1336,7 @@ function freeReturnModal(defCli){
 function docList({types,key,cols,extraFilter}){
   const r=ui[key]||(ui[key]={from:today().slice(0,8)+'01',to:today()});
   const q=(ui[key+'q']||'').toLowerCase();
-  let rows=D.docs.filter(d=>types.includes(d.type)&&inRange(d,r)&&(!extraFilter||extraFilter(d)));
+  let rows=D.docs.filter(d=>!trashed(d)&&types.includes(d.type)&&inRange(d,r)&&(!extraFilter||extraFilter(d)));
   if(q)rows=rows.filter(d=>(d.no+' '+cname(d.cid)+' '+(d.note||'')+' '+(d.lines||[]).map(l=>l.name).join(' ')+' '+(d.category||'')).toLowerCase().includes(q));
   rows=rows.slice().reverse();
   return {rows,html:`<div class="bar">${rangeBar(key)}<input type="search" class="grow" id="${key}Q" placeholder="Qidirish" value="${esc(ui[key+'q']||'')}"></div>
@@ -1496,7 +1517,7 @@ VIEWS.sales=()=>{
   const nums=saleNums();const cbs=list('cashboxes');
   actions(`<button class="btn" id="retBtn">Qaytarib olish</button>${canSee('pos')?`<button class="btn pri" id="slNew">＋ Sotuv</button>`:''}<button class="btn" id="slMore" aria-label="Boshqa amallar">⋮</button>`);
   const q=f.q.toLowerCase().trim();
-  let rows=D.docs.filter(d=>(d.type==='sale'||d.type==='return')&&(!f.type||d.type===f.type)&&(!f.from||d.date>=f.from)&&(!f.to||d.date<=f.to)&&(!f.by||d.by===f.by)
+  let rows=D.docs.filter(d=>!trashed(d)&&(d.type==='sale'||d.type==='return')&&(!f.type||d.type===f.type)&&(!f.from||d.date>=f.from)&&(!f.to||d.date<=f.to)&&(!f.by||d.by===f.by)
     &&(!f.pay||(f.pay===BAL?(d.payments||[]).some(p=>p.cb===BAL):(d.payments||[]).some(p=>p.cb===f.pay)))
     &&(!q||(String(nums[d.id])+' '+d.no+' '+cname(d.cid)+' '+(d.note||'')+' '+(d.lines||[]).map(l=>l.name).join(' ')).toLowerCase().includes(q)));
   rows=rows.slice().sort((a,b)=>(b.date+b.createdAt)>(a.date+a.createdAt)?1:-1);
@@ -1545,7 +1566,7 @@ VIEWS.sales=()=>{
   $$('[data-cli]').forEach(a=>a.onclick=e=>{e.stopPropagation();showContragent(a.dataset.cli)});
   $$('[data-rowm]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=D.byId[b.dataset.rowm];if($('.ddm')){closeDD();return}
     const items=[['view',"Ko'rish",'Tafsilotlar va tarix'],['chek','Chek','Chop etish yoki Telegramga yuborish']];
-    if(d.type==='sale'&&d.status==='active')items.push(['ret','Qaytarish','Shu chekdan tovar qaytarish']);if(d.status==='active'&&(isAdmin()||d.byId===me().id))items.push(['del',"O'chirish (bekor qilish)","Hujjat bekor bo'ladi, tovar va pul qaytariladi"]);
+    if(d.type==='sale'&&d.status==='active')items.push(['ret','Qaytarish','Shu chekdan tovar qaytarish']);if(isAdmin())items.push(['del',"O'chirish","Chelakka ko'chiriladi"]);
     ddMenu(b,items,k=>{if(k==='view')showDoc(d.id);if(k==='chek')receiptModal(d);if(k==='ret')returnModal(d);if(k==='del')delDoc(d)})});
   $('#slCols').onclick=e=>{e.stopPropagation();if($('.ddm')){closeDD();return}const r=e.currentTarget.getBoundingClientRect();const m=document.createElement('div');m.className='ddm';
     m.innerHTML=`<div style="padding:6px 10px;font-weight:700">Ustunlar</div>`+SL_COLS.map(([k,t])=>`<label class="colopt"><input type="checkbox" data-col="${k}" ${vis[k]?'checked':''}> ${t}</label>`).join('');
@@ -1600,13 +1621,21 @@ function lineEditor(o,{withPrice,wh,priceOf}){
 function purNums(){const m={};const st=num(S.config.purStartNo)||1;D.docs.filter(d=>d.type==='purchase').slice().sort((a,b)=>a.createdAt<b.createdAt?-1:1).forEach((d,i)=>m[d.id]=st+i);
   let r=1;D.docs.filter(d=>d.type==='supplier_return').slice().sort((a,b)=>a.createdAt<b.createdAt?-1:1).forEach(d=>m[d.id]='TQ'+(r++));return m}
 const PU_COLS=[['date','Sana',true],['sup',"Ta'minotchi",true],['sum','Summa',true],['st','Status',true],['pay',"To'lov",false],['wh','Ombor',false],['by',"Mas'ul shaxs",false],['note','Izoh',false]];
+VIEWS.trash=()=>{
+  if(!isAdmin()){C(empty("Ruxsat yo'q","Chelakni faqat administrator ko'radi"));return}
+  const tr=S.config.trash||{};
+  const rows=D.docs.filter(d=>tr[d.id]).slice().reverse();
+  C(`<div class="card"><div class="muted" style="margin-bottom:10px">O'chirilgan hujjatlar shu yerda turadi. «Tiklash» bosilsa, hujjat ro'yxatlarga bekor qilingan holatda qaytadi. Tarixda (O'zgarishlar tarixi) ular doim saqlanadi.</div>${rows.length?`<div class="tbl-wrap"><table><thead><tr><th>Hujjat</th><th>Sana</th><th>Kontragent</th><th class="n">Summa</th><th>O'chirgan</th><th></th></tr></thead><tbody>${rows.map(d=>`<tr class="click" data-sd="${d.id}"><td>${esc((TYPES[d.type]||[d.type])[0])} <span class="muted">${esc(d.no)}</span></td><td>${fdt(d.date)}</td><td>${esc(cname(d.cid))}</td><td class="n">${d.total!=null?money(d.total):''}</td><td class="muted">${esc(tr[d.id].by||'')} · ${fdt(String(tr[d.id].at||'').slice(0,10))}</td><td style="text-align:right"><button class="btn sm" data-trr="${d.id}">Tiklash</button></td></tr>`).join('')}</tbody></table></div>`:empty("Chelak bo'sh","O'chirilgan hujjatlar shu yerda ko'rinadi")}</div>`);
+  $$('[data-sd]').forEach(r=>r.onclick=()=>showDoc(r.dataset.sd));
+  $$('[data-trr]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const n={...(S.config.trash||{})};delete n[b.dataset.trr];try{await putConfig({trash:n});toast('Tiklandi')}catch(err){toast('Tiklab bo\'lmadi: '+(err.message||err),true)}});
+};
 VIEWS.purchases=()=>{
   const f=ui.pf||(ui.pf={q:'',from:'',to:'',by:'',wh:'',type:'',showDate:false});
   const vis=lsGet('hb_pucols',null)||Object.fromEntries(PU_COLS.map(c=>[c[0],c[2]]));
   const nums=purNums();const whs=list('warehouses');
   actions(`<button class="btn" id="supRetBtn">Qaytarish</button><button class="btn pri" id="newPur">＋ Xarid</button><button class="btn" id="puMore" aria-label="Boshqa amallar">⋮</button>`);
   const q=f.q.toLowerCase().trim();
-  let rows=D.docs.filter(d=>(d.type==='purchase'||d.type==='supplier_return')&&(!f.type||d.type===f.type)&&(!f.from||d.date>=f.from)&&(!f.to||d.date<=f.to)&&(!f.by||d.by===f.by)&&(!f.wh||d.wh===f.wh)
+  let rows=D.docs.filter(d=>!trashed(d)&&(d.type==='purchase'||d.type==='supplier_return')&&(!f.type||d.type===f.type)&&(!f.from||d.date>=f.from)&&(!f.to||d.date<=f.to)&&(!f.by||d.by===f.by)&&(!f.wh||d.wh===f.wh)
     &&(!q||(String(nums[d.id])+' '+d.no+' '+cname(d.cid)+' '+(d.note||'')+' '+(d.lines||[]).map(l=>l.name).join(' ')).toLowerCase().includes(q)));
   rows=rows.slice().sort((a,b)=>(b.date+b.createdAt)>(a.date+a.createdAt)?1:-1);
   const lim=ui.lim||(ui.lim=50);const shown=rows.slice(0,lim);
@@ -1655,7 +1684,7 @@ VIEWS.purchases=()=>{
   $$('[data-cli]').forEach(a=>a.onclick=e=>{e.stopPropagation();showContragent(a.dataset.cli)});
   $$('[data-rowm]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=D.byId[b.dataset.rowm];if($('.ddm')){closeDD();return}
     const items=[['view',"Ko'rish",'Tafsilotlar va tarix']];
-    if(d.type==='purchase'&&d.status==='active')items.push(['sret',"Ta'minotchiga qaytarish",'Shu xariddan tovar qaytarish']);if(d.status==='active'&&(isAdmin()||d.byId===me().id))items.push(['del',"O'chirish (bekor qilish)","Hujjat bekor bo'ladi, tovar va pul qaytariladi"]);
+    if(d.type==='purchase'&&d.status==='active')items.push(['sret',"Ta'minotchiga qaytarish",'Shu xariddan tovar qaytarish']);if(isAdmin())items.push(['del',"O'chirish","Chelakka ko'chiriladi"]);
     ddMenu(b,items,k=>{if(k==='view')showDoc(d.id);if(k==='sret')supReturnModal(d);if(k==='del')delDoc(d)})});
   $('#puCols').onclick=e=>{e.stopPropagation();if($('.ddm')){closeDD();return}const r=e.currentTarget.getBoundingClientRect();const m=document.createElement('div');m.className='ddm';
     m.innerHTML=`<div style="padding:6px 10px;font-weight:700">Ustunlar</div>`+PU_COLS.map(([k,t])=>`<label class="colopt"><input type="checkbox" data-col="${k}" ${vis[k]?'checked':''}> ${t}</label>`).join('');
