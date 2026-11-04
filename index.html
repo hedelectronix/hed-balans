@@ -1664,7 +1664,7 @@ VIEWS.purchases=()=>{
      ${vis.date?`<td>${fdm(d.date)}</td>`:''}${vis.sup?`<td>${d.cid?`<a class="lnk" data-cli="${d.cid}">${esc(cname(d.cid))}</a>`:'<span class="muted">—</span>'}</td>`:''}${vis.wh?`<td>${esc(wname(d.wh))}</td>`:''}${vis.by?`<td>${esc(d.by)}</td>`:''}
      ${vis.pay?`<td class="wrap">${(d.payments||[]).length?(d.payments||[]).map(p=>`<span class="ptag">${p.cb===BAL?'Qarzga':esc(cbx(p.cb).name)} ${money(p.amount,p.currency)}</span>`).join(' '):'<span class="muted">Kassadan tashqari</span>'}</td>`:''}
      ${vis.sum?`<td class="n">${d.type==='supplier_return'?'−':''}${fmtN(d.total,2)} <small class="muted">${base()}</small></td>`:''}${vis.st?`<td>${stBadge(d)}</td>`:''}${vis.note?`<td class="wrap muted">${esc(d.note||'')}</td>`:''}
-     <td style="text-align:right"><button class="iconbtn" data-rowm="${d.id}" aria-label="Amallar">⋯</button></td></tr>`).join(''):`<tr><td colspan="12">${empty(D.docs.some(d=>d.type==='purchase')?'Filtr bo\'yicha xarid topilmadi':'Hali xarid yo\'q','«＋ Xarid» bilan tovar kirimini rasmiylashtiring')}</td></tr>`}</tbody>
+     <td style="text-align:right;white-space:nowrap">${d.type==='purchase'&&d.status==='active'?`<button class="iconbtn" data-edit="${d.id}" aria-label="O'zgartirish" title="O'zgartirish"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>`:''}<button class="iconbtn" data-rowm="${d.id}" aria-label="Amallar">⋯</button></td></tr>`).join(''):`<tr><td colspan="12">${empty(D.docs.some(d=>d.type==='purchase')?'Filtr bo\'yicha xarid topilmadi':'Hali xarid yo\'q','«＋ Xarid» bilan tovar kirimini rasmiylashtiring')}</td></tr>`}</tbody>
    <tfoot><tr><td></td><td class="muted">${rows.length} ta</td>${vis.date?'<td></td>':''}${vis.sup?'<td></td>':''}${vis.wh?'<td></td>':''}${vis.by?'<td></td>':''}${vis.pay?'<td></td>':''}${vis.sum?`<td class="n"><b>${fmtN(total,2)}</b> <small class="muted">${base()}</small></td>`:''}${vis.st?'<td></td>':''}${vis.note?'<td></td>':''}<td></td></tr></tfoot></table></div>
    ${rows.length>lim?`<div style="text-align:center;margin-top:10px"><button class="btn" id="puMoreRows">Yana ${Math.min(50,rows.length-lim)} ta ko'rsatish (${rows.length-lim} qoldi)</button></div>`:''}`);
   const rr=()=>VIEWS.purchases();
@@ -1682,6 +1682,7 @@ VIEWS.purchases=()=>{
   if($('#puMoreRows'))$('#puMoreRows').onclick=()=>{ui.lim+=50;rr()};
   $$('#content [data-doc]').forEach(r=>r.onclick=e=>{if(e.target.closest('input,button,[data-cli]'))return;showDoc(r.dataset.doc)});
   $$('[data-cli]').forEach(a=>a.onclick=e=>{e.stopPropagation();showContragent(a.dataset.cli)});
+  $$('[data-edit]').forEach(b=>b.onclick=e=>{e.stopPropagation();closeDD();purchaseModal(D.byId[b.dataset.edit])});
   $$('[data-rowm]').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=D.byId[b.dataset.rowm];if($('.ddm')){closeDD();return}
     const items=[['view',"Ko'rish",'Tafsilotlar va tarix']];
     if(d.type==='purchase'&&d.status==='active')items.push(['sret',"Ta'minotchiga qaytarish",'Shu xariddan tovar qaytarish']);if(isAdmin())items.push(['del',"O'chirish","Chelakka ko'chiriladi"]);
@@ -1691,15 +1692,22 @@ VIEWS.purchases=()=>{
     m.style.top=(r.bottom+4)+'px';m.style.left=Math.max(8,r.right-240)+'px';document.body.appendChild(m);
     $$('[data-col]',m).forEach(c=>c.onchange=()=>{vis[c.dataset.col]=c.checked;lsSet('hb_pucols',vis);closeDD();rr()});
     setTimeout(()=>document.addEventListener('mousedown',function h(ev){if(!m.contains(ev.target)){closeDD();document.removeEventListener('mousedown',h)}}),0)};
-  $('#newPur').onclick=purchaseModal;
+  $('#newPur').onclick=()=>purchaseModal();
   $('#supRetBtn').onclick=supReturnPicker;
   $('#puMore').onclick=e=>{if($('.ddm')){closeDD();return}ddMenu(e.currentTarget,[['exp','Excelga eksport',rows.length+' ta hujjat (filtr bo\'yicha)'],['stock','Ombor qoldiqlari','Joriy qoldiqni ko\'rish']],k=>{if(k==='exp')exp(rows);if(k==='stock')go('stock')})};
 };
-function purchaseModal(){
+function purEditErr(d){
+  if(!d||d.type!=='purchase'||d.status!=='active')return 'Bu xaridni endi o\'zgartirib bo\'lmaydi (bekor qilingan)';
+  if(locked()||!(isAdmin()||d.byId===me().id))return 'Xaridni faqat administrator yoki uni yaratgan xodim o\'zgartira oladi';
+  if(isClosed(d.date))return 'Bu sana yopilgan davrga kiradi';
+  if(actives('supplier_return').some(r=>r.ref===d.id))return 'Avval shu xaridga qilingan qaytarishlarni bekor qiling';
+  return null}
+function purchaseModal(src){
   if(!allow('purchase'))return;
+  if(src){const pe=purEditErr(src);if(pe){toast(pe,true);return}}
   const sup=list('contragents').filter(c=>(c.roles||[]).includes('supplier'));
   const whs=list('warehouses'),cbs=list('cashboxes');
-  const o=modal(`<h2>Yangi xarid (tovar kirimi)</h2><div class="form">
+  const o=modal(`<h2>${src?'Xaridni o\'zgartirish '+esc(src.no):'Yangi xarid (tovar kirimi)'}</h2><div class="form">
     <label class="field"><span>Ta'minotchi</span><div style="display:flex;gap:8px"><select id="pSup" style="flex:1;min-width:0"><option value="">— tanlang —</option>${sup.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>${allow('contragent',true)?'<button type="button" class="btn" id="pSupNew" title="Yangi ta\'minotchi qo\'shish">+ Yangi</button>':''}</div></label>
     <label class="field"><span>Qabul qiluvchi ombor</span><select id="pWh">${whs.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('')}</select></label>
     <label class="field"><span>Sana</span><input type="date" id="pDate" value="${today()}" max="${today()}"></label>
@@ -1709,7 +1717,7 @@ function purchaseModal(){
     <div class="full"><div class="muted" style="font-size:13px;margin-bottom:6px">Tovarlar (narx ${base()} da, bir dona uchun)</div><div class="lines-ed"></div></div>
     <label class="field full"><span>Izoh</span><input type="text" id="pNote" placeholder="Masalan: yuk raqami, konteyner"></label></div>
     <div class="total"><span class="muted">Jami</span><b id="pTot">${money(0)}</b></div>
-    <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="pOk">Xaridni saqlash</button></div>`,{wide:true});
+    <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="pOk">${src?'O\'zgarishni saqlash':'Xaridni saqlash'}</button></div>`,{wide:true});
   const ed=lineEditor(o,{withPrice:true,wh:()=>$('#pWh',o).value});
   const tot=()=>r2(ed.valid().reduce((a,l)=>a+l.qty*l.price,0));
   const upd=()=>{const t=tot();const mode=$('#pMode',o).value;const cb=$('#pCb',o).value;const c=cbx(cb);let s=money(t);
@@ -1726,8 +1734,16 @@ function purchaseModal(){
   if($('#pSupNew',o))$('#pSupNew',o).onclick=()=>quickSupplier(id=>{const c=S.contragents[id];const sel=$('#pSup',o);if(c&&![...sel.options].some(x=>x.value===id)){const op=document.createElement('option');op.value=id;op.textContent=c.name;sel.appendChild(op)}sel.value=id;sel.onchange()});
   $('#pMode',o).onchange=syncP;$('#pPaid',o).oninput=upd;
   o.addEventListener('lines',upd);$('#pCb',o).onchange=syncP;
+  if(src){
+    const pays=src.payments||[];const cp0=pays.find(p=>p.cb!==BAL),bp0=pays.find(p=>p.cb===BAL);
+    $('#pSup',o).value=src.cid||'';$('#pWh',o).value=src.wh||$('#pWh',o).value;$('#pDate',o).value=src.date;$('#pNote',o).value=src.note||'';
+    $('#pMode',o).value=cp0&&bp0?'partial':cp0?'cash':bp0?'debt':'outside';
+    syncP();if(cp0&&S.cashboxes[cp0.cb])$('#pCb',o).value=cp0.cb;if(cp0&&bp0)$('#pPaid',o).value=cp0.amount;
+    ed.lines.length=0;(src.lines||[]).forEach(l=>{const p=S.products[l.pid];ed.lines.push({pid:l.pid,label:p?p.name+(p.sku?' | '+p.sku:''):(l.name||''),qty:num(l.qty),price:num(l.price)})});
+    if(!ed.lines.length)ed.lines.push({});ed.redraw();syncP()}
   $('#pOk',o).onclick=async()=>{
     if(!allow('purchase'))return;
+    if(src){const cur=D.byId[src.id];const pe=purEditErr(cur);if(pe){toast(pe,true);return}}
     const lines=ed.valid();if(!lines.length){toast('Kamida bitta mahsulot qo\'shing',true);return}
     const date=$('#pDate',o).value||today();if(isClosed(date)){toast('Bu sana yopilgan davrga kiradi',true);return}
     const fe=futureErr(date);if(fe){toast(fe,true);return}
@@ -1741,11 +1757,23 @@ function purchaseModal(){
       if(pb>=total-0.004){toast("To'langan summa jami summadan kam bo'lishi kerak. To'liq to'lov uchun «Kassadan to'liq to'landi»ni tanlang",true);return}
       payments=[{cb,amount:amtIn(cur,paid),currency:cur},{cb:BAL,amount:r2(total-pb),currency:base()}]}
     if(mode==='debt')payments=[{cb:BAL,amount:total,currency:base()}];
-    const cp=payments.find(p=>p.cb!==BAL);if(cp){const ce=cashErr(cp.cb,cp.amount);if(ce){toast(ce,true);return}}
-    const doc={kind:'doc',id:uid('d'),type:'purchase',no:nextNo('purchase'),date,createdAt:nowISO(),by:me().name,byId:me().id,wh:$('#pWh',o).value,cid:sid,rate:rate(),lines,total,payments,payMode:mode,note:$('#pNote',o).value};
+    const cp=payments.find(p=>p.cb!==BAL);
+    if(cp){const back=src?(src.payments||[]).filter(p=>p.cb===cp.cb).reduce((a,p)=>a+num(p.amount),0):0;const diff=r2(cp.amount-back);const ce=diff>0?cashErr(cp.cb,diff):null;if(ce){toast(ce,true);return}}
+    const wh=$('#pWh',o).value;
+    if(src&&!(S.config&&S.config.allowNegative)){const net={};const put=(p,w,q)=>{const k=p+'|'+w;net[k]=(net[k]||0)+q};
+      (src.lines||[]).forEach(l=>put(l.pid,src.wh,-num(l.qty)));lines.forEach(l=>put(l.pid,wh,l.qty));
+      for(const [k,q] of Object.entries(net)){if(q>=0)continue;const [p,w]=k.split('|');const st=stockOf(p,w);if(st+q<-1e-9){toast(`Saqlab bo'lmaydi: "${pname(p)}" — «${wname(w)}» qoldig'i ${fmtN(st,0)} ta, o'zgarishdan keyin ${fmtN(st+q,0)} bo'lib qoladi`,true);return}}}
+    const doc={kind:'doc',id:uid('d'),type:'purchase',no:nextNo('purchase'),date,createdAt:nowISO(),by:me().name,byId:me().id,wh,cid:sid,rate:rate(),lines,total,payments,payMode:mode,note:$('#pNote',o).value};
+    if(src)doc.editOf=src.id;
     o.close();
-    if(payments.some(p=>p.cb===BAL)&&!hasBal(sid))await putMaster('contragents',{...S.contragents[sid],balanceOn:true});
-    await appendItem(doc);toast('Xarid saqlandi: '+doc.no);
+    try{
+      if(payments.some(p=>p.cb===BAL)&&!hasBal(sid))await putMaster('contragents',{...S.contragents[sid],balanceOn:true});
+      await appendItem(doc);
+    }catch(err){toast('Xarid saqlanmadi: '+(err.message||err),true);return}
+    if(src){
+      try{await appendItem({kind:'cancel',id:uid('c'),target:src.id,at:nowISO(),by:me().name,byId:me().id,note:"Tahrirlandi → "+doc.no});toast('Xarid o\'zgartirildi: '+doc.no)}
+      catch(err){toast("Yangi xarid "+doc.no+" saqlandi, lekin eskisini ("+src.no+") bekor qilib bo'lmadi: "+(err.message||err)+". Eskisini qo'lda bekor qiling",true)}
+    }else toast('Xarid saqlandi: '+doc.no);
   };
 }
 
