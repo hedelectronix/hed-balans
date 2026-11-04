@@ -2611,8 +2611,8 @@ async function loadShops(){const box=$('#shopsBox');if(!box)return;let L;
   $$('[data-shop]').forEach(b=>b.onclick=async()=>{const dis=b.dataset.dis==='1';const x=L.find(y=>y.id===b.dataset.shop);
     const ok=await confirmBox(dis?`«${x.name}» do'konini to'xtatasizmi? Xodimlari kira olmay qoladi.`:`«${x.name}» do'konini qayta yoqasizmi?`,dis?"To'xtatish":'Yoqish');if(!ok)return;
     try{await rpc('hb_platform_set',{p_shop:x.id,p_disabled:dis});toast(dis?"Do'kon to'xtatildi":"Do'kon yoqildi");loadShops()}catch(e){}});
-  $$('[data-pay]').forEach(b=>b.onclick=()=>payModal(L.find(y=>y.id===b.dataset.pay)))}
-async function payModal(x){
+  $$('[data-pay]').forEach(b=>b.onclick=()=>shopPayModal(L.find(y=>y.id===b.dataset.pay)))}
+async function shopPayModal(x){
   const o=modal(`<h2>To'lov: ${esc(x.name)}</h2><p class="muted" style="margin-top:-6px">Hozirgi muddat: <b>${x.paidUntil?fdt(x.paidUntil):'cheksiz'}</b></p><div class="form">
     <label class="field"><span>Necha oy uchun</span><input type="number" id="py_m" min="1" max="24" step="1" value="1"></label>
     <label class="field"><span>Summa (ixtiyoriy)</span><input type="number" id="py_a" min="0" step="1" placeholder="so'm"></label>
