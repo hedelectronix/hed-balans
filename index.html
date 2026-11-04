@@ -355,6 +355,8 @@ nav a{--gc:var(--ink2)}
 nav a[data-g="1"],nav a[data-g="2"],nav a[data-g="3"]{--gc:var(--ink2)}
 .btn.pri{background:#1F883D;border-color:rgba(31,35,40,.15);color:#FFFFFF}
 .btn.pri:hover:not(:disabled){background:#1A7F37}
+.btn.blue{background:var(--acc);border-color:var(--acc);color:var(--accInk)}
+.btn.blue:hover:not(:disabled){filter:brightness(1.08)}
 .btn.pri:disabled{opacity:.6}
 :root[data-hbmode="night"] .btn.pri{background:#347D39;border-color:rgba(205,217,229,.2)}
 :root[data-hbmode="night"] .btn.pri:hover:not(:disabled){background:#2E6F32}
@@ -848,7 +850,7 @@ VIEWS.dash=()=>{
   const top=Object.entries(tp).sort((a,b)=>b[1].s-a[1].s).slice(0,6);
   const low=list('products').filter(p=>p.active!==false&&num(p.minStock)>0&&stockOf(p.id)<num(p.minStock)).slice(0,6);
   const recent=D.docs.slice(-8).reverse();
-  actions(canSee('pos')?`<button class="btn pri" onclick="go('pos')">Yangi sotuv</button>`:'');
+  actions((canSee('pos')?`<button class="btn pri" onclick="go('pos')">Yangi sotuv</button>`:'')+(canSee('purchases')&&allow('purchase',true)?`<button class="btn blue" onclick="purchaseModal()">Yangi xarid</button>`:''));
   C(`<div class="grid">${subReminder()}${canSee('daycash')?closeReminder():''}
    ${me().role==='omborchi'?'':`<div class="card hero"><div><div class="l">Kassalardagi jami pul</div><div class="v">${money(cashTotal)}</div><div class="l" style="margin-top:4px">${base()==='USD'?'≈ '+money(fromBase(cashTotal,'UZS'),'UZS'):''}</div>${rateBadge()}</div>
      <div class="cbtiles">${list('cashboxes').map(c=>{const v=D.cash[c.id]||0;return `<div class="cbtile"><span class="cn">${esc(c.name)}</span><span class="cv ${v<0?'cneg':''}">${money(v,c.currency)}</span><span class="ce">${c.currency!==base()?'≈ '+money(toBase(v,c.currency)):'&nbsp;'}</span></div>`}).join('')}</div></div>`}
