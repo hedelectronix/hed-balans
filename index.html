@@ -954,7 +954,9 @@ VIEWS.pos=()=>{
   $('#sWh').onchange=e=>{POS.wh=e.target.value;savePOS();renderCart()};
   $('#sNote').oninput=e=>{curTab().note=e.target.value;savePOS()};
   $('#sClear').onclick=()=>{const t=curTab();t.lines=[];t.note='';delete t.date;delete t.order;delete t.orderNo;delete t.orderPay;$('#sNote').value='';savePOS();VIEWS.pos()};
-  $('#sPay').onclick=()=>{const t=curTab(),dr=t.draft;if(dr&&dr.pid&&num(dr.qty)>0){t.lines.push({pid:dr.pid,qty:num(dr.qty),price:num(dr.price),disc:num(dr.disc)});t.draft={pid:'',label:'',qty:1,price:'',disc:0};savePOS();renderCart()}payModal()};
+  $('#sPay').onclick=()=>{const t=curTab(),dr=t.draft;if(dr&&dr.pid&&num(dr.qty)>0){t.lines.push({pid:dr.pid,qty:num(dr.qty),price:num(dr.price),disc:num(dr.disc)});t.draft={pid:'',label:'',qty:1,price:'',disc:0};savePOS();renderCart()}
+    /* chakana (naqd) xaridor — to'lov oynasi; mijoz nomi tanlangan bo'lsa — to'g'ridan-to'g'ri qarzga */
+    if(t.cid&&t.lines.length&&t.orderPay!=='cash')debtSaleForClient();else payModal()};
   renderCart();
 };
 const nrm=x=>String(x||'').toLowerCase().replace(/\s+/g,' ').trim();
@@ -1109,19 +1111,35 @@ function payModal(){
     const lf=left();
     const payments=$$('[data-cb]',o).filter(i=>num(i.value)>0).map(i=>({cb:i.dataset.cb,amount:num(i.value),currency:cbx(i.dataset.cb).currency}));
     if(debt()&&lf>0.009)payments.push({cb:BAL,amount:r2(lf),currency:base()});
-    const isDebt=payments.some(p=>p.cb===BAL);
-    const doc={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date:(t.date||today()),createdAt:nowISO(),by:me().name,byId:me().id,wh:POS.wh,cid:t.cid||'',rate:rate(),
-      lines:t.lines.map(l=>({pid:l.pid,name:pname(l.pid),qty:num(l.qty),price:num(l.price),disc:num(l.disc),cost:r2(D.cost[l.pid]||lastPurchase(l.pid)||0)})),payments,total,note:$('#payNote',o).value};
-    if(isDebt)doc.debt=true;
-    if(t.order)doc.order=t.order;
+    const note=$('#payNote',o).value;
     o.close();
-    const tabIdx=POS.active;
-    if(isDebt&&cli&&!cli.balanceOn)await putMaster('contragents',{...cli,balanceOn:true});
-    await appendItem(doc);
-    if(POS.tabs[tabIdx]){const tb=POS.tabs[tabIdx];tb.lines=[];tb.cid='';tb.note='';delete tb.date;const wasOrder=tb.order;delete tb.order;delete tb.orderNo;delete tb.orderPay;if(wasOrder&&ui&&ui.of)ui.of.list=null;savePOS();if(page==='pos')render()}
-    toast('Sotuv saqlandi: '+doc.no+(isDebt?' (qarzga)':''));
-    receiptModal(doc);
+    await commitSale(t,cli,total,payments,note);
   };
+}
+async function commitSale(t,cli,total,payments,note){
+  const isDebt=payments.some(p=>p.cb===BAL);
+  const doc={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date:(t.date||today()),createdAt:nowISO(),by:me().name,byId:me().id,wh:POS.wh,cid:t.cid||'',rate:rate(),
+    lines:t.lines.map(l=>({pid:l.pid,name:pname(l.pid),qty:num(l.qty),price:num(l.price),disc:num(l.disc),cost:r2(D.cost[l.pid]||lastPurchase(l.pid)||0)})),payments,total,note:note||''};
+  if(isDebt)doc.debt=true;
+  if(t.order)doc.order=t.order;
+  const tabIdx=POS.active;
+  if(isDebt&&cli&&!cli.balanceOn)await putMaster('contragents',{...cli,balanceOn:true});
+  await appendItem(doc);
+  if(POS.tabs[tabIdx]){const tb=POS.tabs[tabIdx];tb.lines=[];tb.cid='';tb.note='';delete tb.date;const wasOrder=tb.order;delete tb.order;delete tb.orderNo;delete tb.orderPay;if(wasOrder&&ui&&ui.of)ui.of.list=null;savePOS();if(page==='pos')render()}
+  toast('Sotuv saqlandi: '+doc.no+(isDebt?' (qarzga)':''));
+  receiptModal(doc);
+}
+/* Mijoz tanlangan bo'lsa — to'lov oynasisiz, to'liq summa shu mijozga qarzga yoziladi */
+async function debtSaleForClient(){
+  if(!allow('sale'))return;
+  const t=curTab(),cli=t.cid?S.contragents[t.cid]:null;
+  if(!cli||!t.lines.length)return payModal();
+  const err=checkLines(t.lines,POS.wh,'sale');
+  if(err){toast(err,true);return}
+  const total=r2(t.lines.reduce((a,l)=>a+lineSum(l),0));
+  if(total<=0){toast("Jami summa 0 — sotuvni saqlab bo'lmaydi",true);return}
+  if(!confirm(`${cli.name} ga ${money(total)} qarzga yozilsinmi?`))return;
+  await commitSale(t,cli,total,[{cb:BAL,amount:total,currency:base()}],t.note||'');
 }
 function receiptHTML(d){
   const c=S.config;const vatOn=c.showVat;
