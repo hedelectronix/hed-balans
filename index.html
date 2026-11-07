@@ -981,6 +981,8 @@ async function orderToSale(o){
   savePOS();go('pos');toast(`${o.no} sotuv oynasida — to'lovni kiriting`)}
 function curTab(){return POS.tabs[POS.active]||POS.tabs[0]}
 function addToCart(pid){const p=S.products[pid];const t=curTab();const l=t.lines.find(x=>x.pid===pid);if(l)l.qty=num(l.qty)+1;else t.lines.push({pid,qty:1,price:num(p.price),disc:0});savePOS();renderCart()}
+/* mijoz nomi tanlansa tugma «Qarzga sotildi» bo'ladi, chakana (naqd) xaridorda «To'lovga o'tish» */
+function updPayBtn(){const t=curTab(),b=$('#sPay');if(b)b.textContent=(t.cid&&t.orderPay!=='cash')?'Qarzga sotildi':"To'lovga o'tish"}
 function renderCart(){
   if(!$('#sBody'))return;
   const t=curTab();
@@ -993,7 +995,8 @@ function renderCart(){
   $('#sCli').innerHTML=`<option value="">Chakana (naqd) xaridor</option>`+clients.map(c=>`<option value="${c.id}" ${c.id===t.cid?'selected':''}>${esc(c.name)}${c.phone?' — '+esc(c.phone):''}</option>`).join('');
   const balTxt=()=>hasBal(t.cid)?'Balans: '+money(balOf(t.cid)):'';
   $('#sCliBal').textContent=balTxt();
-  $('#sCli').onchange=e=>{t.cid=e.target.value;savePOS();$('#sCliBal').textContent=balTxt()};
+  updPayBtn();
+  $('#sCli').onchange=e=>{t.cid=e.target.value;savePOS();$('#sCliBal').textContent=balTxt();updPayBtn()};
   $('#sCliNew').onclick=()=>quickClient(id=>{t.cid=id;savePOS();if(page==='pos')VIEWS.pos()});
   $('#posPL').innerHTML=productOptions();
   const noPrice=S.config.allowPriceEdit===false&&!isAdmin(),noDisc=S.config.allowDiscount===false;
