@@ -3,25 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Hed balans</title>
+<title>Balans</title>
 <meta name="theme-color" content="#E6E8EB">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Hed balans">
+<meta name="apple-mobile-web-app-title" content="Balans">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>if("serviceWorker"in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Hed balans">
+<meta name="apple-mobile-web-app-title" content="Balans">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* Hed balans — kulrang va oq palitra, qora rang ishlatilmaydi. Rejimni faqat ilovadagi tugma o'zgartiradi. */
+  /* Balans — kulrang va oq palitra, qora rang ishlatilmaydi. Rejimni faqat ilovadagi tugma o'zgartiradi. */
   --bg:#F6F8FA; --panel:#FFFFFF; --soft:#F6F8FA; --line:#D0D7DE; --ink:#1F2328; --ink2:#59636E;
   --acc:#0969DA; --accInk:#FFFFFF; --accSoft:#DDF4FF; --accLine:#54AEFF;
   --glow:none;
@@ -388,7 +388,7 @@ nav a[data-g="1"],nav a[data-g="2"],nav a[data-g="3"]{--gc:var(--ink2)}
 </style>
 </head>
 <body>
-<div id="root"><div class="loading"><svg width="44" height="44" viewBox="0 0 40 40"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6v26M8 12h24M12 32h16"/><path d="M8 12l-5 10h10zM32 12l-5 10h10z"/></g></svg>Hed balans yuklanmoqda…</div></div>
+<div id="root"><div class="loading"><svg width="44" height="44" viewBox="0 0 40 40"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6v26M8 12h24M12 32h16"/><path d="M8 12l-5 10h10zM32 12l-5 10h10z"/></g></svg>Balans yuklanmoqda…</div></div>
 <div id="print"></div>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0/dist/umd/supabase.js"></script>
@@ -573,7 +573,7 @@ function shell(){
   $('#root').innerHTML=`<div class="app">
   <header class="hb">
     <div class="hrow"><div class="brand"><svg width="32" height="32" viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A9AEB4"/><stop offset=".55" stop-color="#8B9097"/><stop offset="1" stop-color="#6B7178"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#lg)"/><g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v21M10 13h20M14 30h12"/><path d="M10 13l-4 8h8zM30 13l-4 8h8z"/></g></svg>
-      <div><b>Hed balans</b><small id="coName"></small></div></div>
+      <div><b>Balans</b><small id="coName"></small></div></div>
       <div class="clock" id="clock" aria-live="off"><span class="ct" id="clkT">--:--</span><span class="cd" id="clkD"></span></div><div class="who"><span class="sync" id="sync"></span><span class="wname" id="meName"></span><span class="wrole" id="meRole"></span><button class="btn sm" id="modeBtn" title="Kunduzgi / tungi rejim" aria-label="Kunduzgi yoki tungi rejim">☾</button><button class="btn sm" id="outBtn" title="Akkauntdan chiqish">Chiqish</button></div></div>
     <nav id="nav"></nav>
   </header>
@@ -981,7 +981,7 @@ async function orderToSale(o){
     if(!pid){miss.push(l.name);continue}
     const ex=lines.find(x=>x.pid===pid);   // bir mahsulot sotuvda bitta qatorda (narx har xil bo'lsa — o'rtacha, jami o'zgarmaydi)
     if(ex){const q=num(ex.qty)+num(l.qty);ex.price=Math.round((num(ex.qty)*num(ex.price)+num(l.qty)*num(l.price))/q*10000)/10000;ex.qty=q}else lines.push({pid,qty:num(l.qty),price:num(l.price),disc:0})}
-  if(miss.length){const mm=modal(`<h2>Katalogda yo'q mahsulotlar</h2><p class="muted">Zakazni sotuvga aylantirish uchun bu mahsulotlar Hed balans katalogida bo'lishi kerak (nomi aynan shunday). Mahsulotlar bo'limida qo'shib, kirim qiling va qayta bosing:</p><ul>${miss.map(x=>`<li><b>${esc(x)}</b></li>`).join('')}</ul><div class="mfoot"><button class="btn" data-close>Yopish</button>${allow('product',true)?'<button class="btn pri" id="mGo">Mahsulotlarga o\'tish</button>':''}</div>`);const g=$('#mGo',mm);if(g)g.onclick=()=>{mm.close();go('products')};return}
+  if(miss.length){const mm=modal(`<h2>Katalogda yo'q mahsulotlar</h2><p class="muted">Zakazni sotuvga aylantirish uchun bu mahsulotlar Balans katalogida bo'lishi kerak (nomi aynan shunday). Mahsulotlar bo'limida qo'shib, kirim qiling va qayta bosing:</p><ul>${miss.map(x=>`<li><b>${esc(x)}</b></li>`).join('')}</ul><div class="mfoot"><button class="btn" data-close>Yopish</button>${allow('product',true)?'<button class="btn pri" id="mGo">Mahsulotlarga o\'tish</button>':''}</div>`);const g=$('#mGo',mm);if(g)g.onclick=()=>{mm.close();go('products')};return}
   let cid=o.cid&&S.contragents[o.cid]&&!S.contragents[o.cid].deleted?o.cid:'';
   if(!cid&&o.client){const cs=list('contragents').filter(isCli);const m=(o.phone&&ph9(o.phone).length===9&&cs.find(c=>ph9(c.phone)===ph9(o.phone)))||cs.find(c=>nrm(c.name)===nrm(o.client));if(m)cid=m.id}
   if(!cid&&o.pay==='debt'){if(!allow('contragent'))return;const id=uid('k');try{await putMaster('contragents',{id,name:o.client,phone:o.phone||'',roles:['client'],balanceOn:true,kind:'jismoniy',createdAt:nowISO()});cid=id}catch(e){return}}
@@ -2477,14 +2477,14 @@ VIEWS.settings=()=>{
   if(tab==='per')body=`<div class="card"><p>Belgilangan sanagacha (shu sana ham) bo'lgan hujjatlarni yaratish va bekor qilish taqiqlanadi. Hisob-kitob yopilgan oy o'zgarib ketmasligi uchun ishlatiladi.</p><div class="bar"><input type="date" data-cfg="closedUntil" value="${c.closedUntil||''}"><button class="btn pri" id="cfgSave">Saqlash</button>${c.closedUntil?'<button class="btn" id="perOpen">Davrni ochish</button>':''}</div></div>`;
   if(tab==='tg')body=`<div class="card"><h3>Do'koningizning Telegram boti</h3><p class="muted">Mijoz botga kirib telefon raqamini yuboradi. Shu raqam bilan mijoz kartochkasi bo'lsa, har bir sotuv, qaytarish va to'lov qabul qilinganda unga chek avtomatik boradi. «Funksiyalar» bo'limidagi «Mijozlarga Telegram orqali xabar» bilan o'chirib qo'yish mumkin.</p><div id="tgBox" class="muted">Yuklanmoqda…</div></div>`;
   if(tab==='data')body=dataTabHTML();
-  if(tab==='zk')body=`<div class="grid g2" style="align-items:start"><div class="card"><h3>Hed zakaz — Google Sheets orqali</h3><p class="muted">Sotuvchilar kompyuterida <b>${esc(zakazUrl())}</b> ochiladi. Zakaz saqlanishi bilan <b>Google Drive</b>'ingizdagi «Hed zakazlar» jadvaliga yoziladi, har kuni Excel fayl <b>Telegram</b>'ingizga keladi. Bu ish sizning Google akkauntingizdagi skript (Google Apps Script) orqali bajariladi. Tayyor kod Hed balans bilan bog'langan bo'ladi: zakaz oynasida ostatka ko'rinadi, zakaz shu yerdagi «Zakazlar» sahifasiga ham tushadi.</p>
+  if(tab==='zk')body=`<div class="grid g2" style="align-items:start"><div class="card"><h3>Hed zakaz — Google Sheets orqali</h3><p class="muted">Sotuvchilar kompyuterida <b>${esc(zakazUrl())}</b> ochiladi. Zakaz saqlanishi bilan <b>Google Drive</b>'ingizdagi «Hed zakazlar» jadvaliga yoziladi, har kuni Excel fayl <b>Telegram</b>'ingizga keladi. Bu ish sizning Google akkauntingizdagi skript (Google Apps Script) orqali bajariladi. Tayyor kod Balans bilan bog'langan bo'ladi: zakaz oynasida ostatka ko'rinadi, zakaz shu yerdagi «Zakazlar» sahifasiga ham tushadi.</p>
     <ol style="margin:6px 0 12px 18px;padding:0;line-height:1.55"><li>Pastdagi «Kalit va kodni yaratish» tugmasini bosing.</li><li><b>script.google.com</b> → «Yangi loyiha» → bor kodni o'chirib, tayyor kodni joylang.</li><li>Koddagi <code>PIN</code> ga sotuvchilar kiritadigan parolni yozing (kamida 6 belgi). Telegram uchun <b>@BotFather</b> → /newbot → tokenni <code>BOT_TOKEN</code> ga yozing va botga /start yuboring.</li><li>«sozlash» funksiyasini tanlab ▶ <b>Run</b> bosing va Google ruxsatlarini bering.</li><li><b>Deploy → New deployment → Web app</b>: Execute as «Me», Who has access «Anyone» → Deploy. Chiqqan manzil va PIN ni har bir sotuvchi kompyuterida Hed zakazga bir marta kiriting.</li></ol>
     <button class="btn pri" id="zkKey">Kalit va kodni yaratish</button><p class="muted" style="font-size:13px">Yangi kalit yaratilsa, eski skriptdagi kalit ishlamay qoladi — kodni qayta joylab, yangi versiya qilib Deploy qiling. Balanssiz ishlatish uchun koddagi BALANS_… qatorlarini bo'sh qoldiring.</p></div>
     <div class="card"><h3>Mahsulot nomlari: HED kalkulyator narxnomasi</h3><p class="muted">Zakaz yozganda katalogdagi mahsulotlar bilan birga shu Google Sheets narxnomasidagi nomlar va narxlar ham chiqadi (ustunlar: Bolim | Mahsulot | Narx). Ro'yxatda yo'q mahsulotni sotuvchi qo'lda yozadi. Havola: Google Sheets → Fayl → Ulashish → «Internetda e'lon qilish» → CSV. Tayyor kodga yoziladi.</p>
     <label class="field"><span>Narxnoma havolasi (CSV)</span><input type="url" id="zkCsv" value="${esc(c.calcCsv||'')}" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv"></label><div class="mfoot" style="justify-content:flex-start"><button class="btn" id="zkCsvSave">Saqlash</button></div></div>
     <div class="card"><h3>Sotuvchilar</h3><p class="muted">Hed zakaz kompyuterda bir marta sotuvchini tanlaydi (ro'yxatda yo'q ismni ham yozsa bo'ladi). Har qatorga bitta ism. Tayyor kodga yoziladi.</p><textarea id="zkSel" rows="5" placeholder="Ma'ruf&#10;Mirabbos">${esc((c.sellers||[]).join('\n'))}</textarea><div class="mfoot" style="justify-content:flex-start"><button class="btn" id="zkSelSave">Saqlash</button></div></div>
     <div class="card"><h3>Tayyor kod (Google Apps Script)</h3><div id="zkOut" class="muted">${ui.zkCode?zkOutHTML(ui.zkCode):'Kalit yaratilgach shu yerda chiqadi.'}</div></div></div>`;
-  if(tab==='shops')body=`<div class="card"><p class="muted">Hed balansdan foydalanayotgan barcha do'konlar. Bu bo'limni faqat siz (platforma egasi) ko'rasiz. To'xtatilgan do'kon xodimlari tizimga kira olmaydi, ma'lumotlari o'chmaydi.</p><div id="shopsBox" class="muted">Yuklanmoqda…</div></div>`;
+  if(tab==='shops')body=`<div class="card"><p class="muted">Balansdan foydalanayotgan barcha do'konlar. Bu bo'limni faqat siz (platforma egasi) ko'rasiz. To'xtatilgan do'kon xodimlari tizimga kira olmaydi, ma'lumotlari o'chmaydi.</p><div id="shopsBox" class="muted">Yuklanmoqda…</div></div>`;
   C(`<div class="tabs">${TABS.map(([k,t])=>`<button data-t="${k}" class="${k===tab?'on':''}">${t}</button>`).join('')}</div>${body}`);
   $$('[data-t]').forEach(b=>b.onclick=()=>{ui.tab=b.dataset.t;VIEWS.settings()});
   if(tab==='shops')loadShops();
@@ -2539,7 +2539,7 @@ function parseBackup(txt){let o;try{o=JSON.parse(txt)}catch(e){return {err:['Fay
   const isObj=x=>x&&typeof x==='object'&&!Array.isArray(x);let data,ver,created,by='';
   if(isObj(o)&&o.format===BK_FORMAT){ver=num(o.version);data=o.data;created=o.createdAt;by=o.createdBy||'';if(!ver||ver>BK_VERSION)return {err:[`Zaxira versiyasi (${o.version}) bu dastur versiyasiga mos emas`]}}
   else if(isObj(o)&&o.exportedAt&&isObj(o.config)&&isObj(o.journal)){ver=1;created=o.exportedAt;data={config:o.config,products:o.products,contragents:o.contragents,warehouses:o.warehouses,cashboxes:o.cashboxes,employees:o.employees,journal:o.journal}}
-  else return {err:['Bu Hed balans zaxira fayli emas']};
+  else return {err:['Bu Balans zaxira fayli emas']};
   if(!isObj(data))return {err:["Zaxirada ma'lumotlar bo'limi yo'q"]};
   const E=[];if(!isObj(data.config))E.push("Sozlamalar bo'limi yo'q");
   for(const k of [...MASTER,'journal'])if(!isObj(data[k]))E.push(`«${k}» bo'limi yo'q yoki noto'g'ri`);
@@ -2613,7 +2613,7 @@ function defaults(){
 }
 function monthsFrom(start){const out=[];let [y,m]=start.split('-').map(Number);const [cy,cm]=today().slice(0,7).split('-').map(Number);while(y<cy||(y===cy&&m<=cm)){out.push(y+'-'+String(m).padStart(2,'0'));m++;if(m>12){m=1;y++}if(out.length>60)break}return out.slice(-60)}
 async function inviteModal(id){if(!allow('admin'))return;const e=S.employees[id]||{};let r;try{r=await rpc('hb_make_invite',{p_id:id})}catch(err){return}
-  const link=location.origin+location.pathname;const txt=`Hed balans: ${link}\n«Ro'yxatdan o'tish» → email: ${r.email}\nTaklif kodi: ${r.code}\n(${fdt(String(r.expires).slice(0,10))} gacha amal qiladi)`;
+  const link=location.origin+location.pathname;const txt=`Balans: ${link}\n«Ro'yxatdan o'tish» → email: ${r.email}\nTaklif kodi: ${r.code}\n(${fdt(String(r.expires).slice(0,10))} gacha amal qiladi)`;
   const o=modal(`<h2>${esc(e.name||'Xodim')} uchun taklif kodi</h2><p class="muted" style="margin-top:-6px">Kodni xodimga yuboring. U faqat <b>${esc(r.email)}</b> emaili bilan, bir marta ishlaydi.</p>
     <div style="font:800 30px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-align:center;padding:16px;border:2px dashed var(--acc);border-radius:12px;margin:8px 0 12px;user-select:all" id="invCode">${esc(r.code)}</div>
     <textarea id="invTxt" rows="4" readonly style="font-size:13px">${esc(txt)}</textarea>
@@ -2667,7 +2667,7 @@ function boot(){compute();shell();render();rateWatch()}
 function authScreen(mode,msg,kind){
   mode=mode||'in';const ttl={in:'Kirish',up:"Ro'yxatdan o'tish",reset:'Parolni tiklash',newpw:'Yangi parol'}[mode];
   $('#root').innerHTML=`<div class="auth"><div class="box"><svg width="44" height="44" viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="lga" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A9AEB4"/><stop offset=".55" stop-color="#8B9097"/><stop offset="1" stop-color="#6B7178"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#lga)"/><g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v21M10 13h20M14 30h12"/><path d="M10 13l-4 8h8zM30 13l-4 8h8z"/></g></svg>
-    <h1>Hed balans</h1><p class="muted">${ttl}</p><form id="af" novalidate>
+    <h1>Balans</h1><p class="muted">${ttl}</p><form id="af" novalidate>
     ${mode!=='newpw'?`<label class="field"><span>Email</span><input type="email" id="aE" autocomplete="username" inputmode="email" required></label>`:''}
     ${mode!=='reset'?`<label class="field"><span>${mode==='newpw'?'Yangi parol':'Parol'}</span><input type="password" id="aP" autocomplete="${mode==='in'?'current-password':'new-password'}" required></label>`:''}
     ${mode==='up'||mode==='newpw'?`<label class="field"><span>Parolni takrorlang</span><input type="password" id="aP2" autocomplete="new-password"></label>`:''}
@@ -2699,7 +2699,7 @@ function authScreen(mode,msg,kind){
   setTimeout(()=>{const f=$('#aE')||$('#aP');const act=document.activeElement;if(f&&(!act||act===document.body))f.focus()},50)}
 function subReminder(){if(!SHOP||!SHOP.paidUntil)return '';const d=typeof SHOP.daysLeft==='number'?SHOP.daysLeft:Math.round((new Date(SHOP.paidUntil)-new Date(today()))/864e5);if(d>7)return '';
   return `<div class="remind ${d<=2?'bad':'warn'}"><span>⏰ Obuna muddati ${fdt(SHOP.paidUntil)} da tugaydi${d>0?' ('+d+' kun qoldi)':' (bugun)'} — oylik to'lovni amalga oshiring, aks holda ilova yopiladi.</span></div>`}
-function expiredScreen(msg){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>Obuna muddati tugagan</h1><p class="muted">${esc(msg||'')}</p><p class="muted">Hed balansdan foydalanishni davom ettirish uchun oylik to'lovni amalga oshiring. To'lov tasdiqlangach ilova darhol ochiladi.</p><div class="links"><a id="nRe">Qayta tekshirish</a><a id="nOut">Chiqish</a></div></div></div>`;$('#nOut').onclick=signOut;$('#nRe').onclick=()=>location.reload()}
+function expiredScreen(msg){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>Obuna muddati tugagan</h1><p class="muted">${esc(msg||'')}</p><p class="muted">Balansdan foydalanishni davom ettirish uchun oylik to'lovni amalga oshiring. To'lov tasdiqlangach ilova darhol ochiladi.</p><div class="links"><a id="nRe">Qayta tekshirish</a><a id="nOut">Chiqish</a></div></div></div>`;$('#nOut').onclick=signOut;$('#nRe').onclick=()=>location.reload()}
 function noticeScreen(title,text){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>${esc(title)}</h1><p class="muted">${esc(text)}</p><button class="btn" id="nOut">Chiqish</button></div></div>`;$('#nOut').onclick=signOut}
 function savedCode(){let c='';try{c=sessionStorage.getItem('hb_code')||localStorage.getItem('hb_code')||''}catch(e){}return c}
 function clearCode(){try{sessionStorage.removeItem('hb_code');localStorage.removeItem('hb_code')}catch(e){}}
@@ -2719,7 +2719,7 @@ async function enter(code){
   if(b.ok)clearCode();
   if(!b.ok){if(b.reason==='no_shop')return shopScreen(b.email,'');
     if(b.reason==='need_code')return codeScreen(b.email,'');
-    if(b.reason==='shop_disabled')return noticeScreen("Do'kon to'xtatilgan","Bu do'kon vaqtincha to'xtatilgan. Hed balans xizmati bilan bog'laning.");
+    if(b.reason==='shop_disabled')return noticeScreen("Do'kon to'xtatilgan","Bu do'kon vaqtincha to'xtatilgan. Balans xizmati bilan bog'laning.");
     if(b.reason==='inactive')return noticeScreen("Kirish ruxsati yo'q",`${b.email} akkaunti do'konda nofaol qilingan. Do'kon administratoriga murojaat qiling.`);
     if(b.reason==='bad_code'){clearCode();return codeScreen(b.email,"Kod noto'g'ri. Qayta tekshirib kiriting")}
     if(b.reason==='code_expired'){clearCode();return noticeScreen("Taklif kodi yaroqsiz",`Kodning muddati o'tgan yoki ko'p marta xato kiritilgani uchun bekor qilingan. Administratordan ${b.email} uchun yangi taklif kodi so'rang.`)}
@@ -2736,7 +2736,7 @@ async function enter(code){
   window.addEventListener('online',()=>syncNow());window.addEventListener('offline',()=>setOnline(false));
 }
 async function start(){
-  if(!window.supabase||!HBC.url||!HBC.anonKey||/YOUR_/.test(HBC.url+HBC.anonKey)){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>Hed balans</h1><p class="muted">Server sozlanmagan: <b>config.js</b> fayliga Supabase loyihasining URL va anon kalitini yozing (README.md ga qarang).</p></div></div>`;return}
+  if(!window.supabase||!HBC.url||!HBC.anonKey||/YOUR_/.test(HBC.url+HBC.anonKey)){$('#root').innerHTML=`<div class="auth"><div class="box"><h1>Balans</h1><p class="muted">Server sozlanmagan: <b>config.js</b> fayliga Supabase loyihasining URL va anon kalitini yozing (README.md ga qarang).</p></div></div>`;return}
   SB=window.HB_CLIENT||window.supabase.createClient(HBC.url,HBC.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
   let recovery=false;
   SB.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){recovery=true;authScreen('newpw','Yangi parol kiriting')}
