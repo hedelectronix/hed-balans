@@ -945,7 +945,7 @@ VIEWS.pos=()=>{
       <label class="field"><span>Ombor</span><select id="sWh">${whs.map(w=>`<option value="${w.id}" ${w.id===POS.wh?'selected':''}>${esc(w.name)}</option>`).join('')}</select></label>
     </div>
     <datalist id="posPL"></datalist>
-    <div class="tbl-wrap"><table class="stbl"><thead><tr><th style="width:36px">#</th><th>Mahsulot</th><th style="width:110px">Miqdor</th><th style="width:140px">Narx (${base()})</th><th style="width:110px">Chegirma %</th><th class="n" style="width:130px">Summa</th><th style="width:44px"></th></tr></thead><tbody id="sBody"></tbody></table></div>
+    <div class="tbl-wrap"><table class="stbl"><thead><tr><th style="width:36px">#</th><th>Mahsulot</th><th style="width:110px">Miqdor</th><th style="width:140px">Narx (${base()})</th><th class="n" style="width:130px">Summa</th><th style="width:44px"></th></tr></thead><tbody id="sBody"></tbody></table></div>
     <div class="sale-foot">
       <label class="field"><span>Izoh</span><textarea id="sNote" placeholder="Izoh">${esc(curTab().note||'')}</textarea></label>
       <div class="sale-tot"><div><span class="muted">Oraliq jami:</span><b id="tSub"></b></div><div><span class="muted">Chegirma:</span><b id="tDisc"></b></div><div class="big"><span>Jami:</span><b id="tTot"></b></div><div class="muted" id="tUzs" style="justify-content:flex-end"></div>
@@ -1000,16 +1000,14 @@ function renderCart(){
   const row=(l,i)=>{const p=S.products[l.pid]||{};const st=stockOf(l.pid,POS.wh);return `<tr><td class="muted">${i+1}</td><td class="wrap"><b>${esc(p.name||'—')}</b>${p.sku?` <span class="muted">${esc(p.sku)}</span>`:''}<small class="stk ${st<=0?'neg':''}">Qoldiq: ${fmtN(st,0)}</small></td>
     <td><input type="number" min="0" step="1" value="${l.qty}" data-f="qty" data-i="${i}" aria-label="Miqdor" style="width:100%"></td>
     <td><input type="number" min="0" step="0.01" value="${l.price}" data-f="price" data-i="${i}" aria-label="Narx" style="width:100%" ${noPrice?'disabled':''}></td>
-    <td><input type="number" min="0" max="100" step="1" value="${l.disc||0}" data-f="disc" data-i="${i}" aria-label="Chegirma" style="width:100%" ${noDisc?'disabled':''}></td>
     <td class="n"><b data-ls="${i}">${money(lineSum(l))}</b></td><td><button class="btn sm" data-rm="${i}" aria-label="O'chirish">×</button></td></tr>`};
   const dr=t.draft||(t.draft={pid:'',label:'',qty:1,price:'',disc:0});
   const dst=dr.pid?fmtN(stockOf(dr.pid,POS.wh),0):'';
-  $('#sBody').innerHTML=t.lines.map(row).join('')+`<tr class="addrow"><td class="muted">${t.lines.length+1}</td>
+  $('#sBody').innerHTML=t.lines.map(row).join('')+`<tr class="addrow"><td class="muted">${t.lines.length+1}<input type="hidden" id="dDs" value="${dr.disc||0}"></td>
     <td><div style="min-width:0"><input type="text" id="sAdd" autocomplete="off" value="${esc(dr.label||'')}" placeholder="Mahsulot nomi, artikul yoki shtrix-kod" style="width:100%;min-width:0"><small id="dSt" class="stk ${dr.pid&&stockOf(dr.pid,POS.wh)<=0?'neg':''}">${dst}</small><div id="sgBox" class="sgbox" hidden></div></div></td>
     
     <td><input type="number" min="0" step="1" id="dQty" value="${dr.qty}" aria-label="Miqdor" style="width:100%"></td>
     <td><input type="number" min="0" step="0.01" id="dPr" value="${dr.price}" aria-label="Narx" style="width:100%" ${noPrice?'disabled':''}></td>
-    <td><input type="number" min="0" max="100" step="1" id="dDs" value="${dr.disc||0}" aria-label="Chegirma" style="width:100%" ${noDisc?'disabled':''}></td>
     <td class="n" id="dSum">${dr.pid?money(lineSum(dr)):''}</td>
     <td><button class="btn sm pri" id="dAdd" aria-label="Qatorni qo'shish" title="Qo'shish (Enter)">+</button></td></tr>`;
   const tot=()=>{const sub=t.lines.reduce((a,l)=>a+num(l.qty)*num(l.price),0),tt=t.lines.reduce((a,l)=>a+lineSum(l),0);$('#tSub').textContent=money(sub);$('#tDisc').textContent=money(sub-tt);$('#tTot').textContent=money(tt);$('#tUzs').textContent=base()==='USD'?'≈ '+money(fromBase(tt,'UZS'),'UZS'):''};
