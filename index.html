@@ -58,7 +58,7 @@ header.hb{position:relative;color:var(--hdrInk);flex:none;z-index:10;background:
 header.hb::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--hdrLine)}
 .brand svg rect{fill:url(#lg)}
 .hrow{display:flex;align-items:center;gap:14px;padding:10px 22px 0}
-.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;cursor:pointer}
 .brand svg{flex:none}
 .brand b{color:var(--sideHi);font-size:18px;font-weight:800;letter-spacing:-.02em}
 .brand small{display:block;font-size:11px;color:var(--sideInk);opacity:.8}
@@ -573,7 +573,7 @@ let dirty=false;
 function shell(){
   $('#root').innerHTML=`<div class="app">
   <header class="hb">
-    <div class="hrow"><div class="brand"><img src="icon-192.png" width="32" height="32" alt="" style="border-radius:8px;display:block">
+    <div class="hrow"><div class="brand" id="brandHome" role="link" tabindex="0" title="Bosh panel"><img src="icon-192.png" width="32" height="32" alt="" style="border-radius:8px;display:block">
       <div><b>Balans</b><small id="coName"></small></div></div>
       <div class="clock" id="clock" aria-live="off"><span class="ct" id="clkT">--:--</span><span class="cd" id="clkD"></span></div><div class="who"><span class="sync" id="sync"></span><span class="wname" id="meName"></span><span class="wrole" id="meRole"></span><button class="btn sm" id="modeBtn" title="Kunduzgi / tungi rejim" aria-label="Kunduzgi yoki tungi rejim">☾</button><button class="btn sm" id="outBtn" title="Akkauntdan chiqish">Chiqish</button></div></div>
     <nav id="nav"></nav>
@@ -587,6 +587,7 @@ function shell(){
   tick();clearInterval(window.__clk);window.__clk=setInterval(tick,1000);
   const mSync=()=>{const b=$('#modeBtn');if(b){const n=document.documentElement.dataset.hbmode==='night';b.textContent=n?'☀':'☾';b.title=n?'Kunduzgi rejimga o\'tish':'Tungi rejimga o\'tish'}};mSync();
   $('#modeBtn').onclick=()=>{setMode(document.documentElement.dataset.hbmode==='night'?'day':'night');mSync()};
+  {const bh=$('#brandHome');if(bh){const g=()=>{if(canSee('dash'))go('dash')};bh.onclick=g;bh.onkeydown=e=>{if(e.key==='Enter')g()}}}
   $('#outBtn').onclick=async()=>{const r=await confirmBox('Akkauntdan chiqilsinmi?','Chiqish');if(r)signOut()};
   document.addEventListener('focusout',()=>{if(dirty)setTimeout(()=>{if(dirty&&!busy())render()},50)});
 }
