@@ -1116,7 +1116,7 @@ function payModal(){
     await commitSale(t,cli,total,payments,note);
   };
 }
-async function commitSale(t,cli,total,payments,note){
+async function commitSale(t,cli,total,payments,note,showReceipt){
   const isDebt=payments.some(p=>p.cb===BAL);
   const doc={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date:(t.date||today()),createdAt:nowISO(),by:me().name,byId:me().id,wh:POS.wh,cid:t.cid||'',rate:rate(),
     lines:t.lines.map(l=>({pid:l.pid,name:pname(l.pid),qty:num(l.qty),price:num(l.price),disc:num(l.disc),cost:r2(D.cost[l.pid]||lastPurchase(l.pid)||0)})),payments,total,note:note||''};
@@ -1126,6 +1126,12 @@ async function commitSale(t,cli,total,payments,note){
   if(isDebt&&cli&&!cli.balanceOn)await putMaster('contragents',{...cli,balanceOn:true});
   await appendItem(doc);
   if(POS.tabs[tabIdx]){const tb=POS.tabs[tabIdx];tb.lines=[];tb.cid='';tb.note='';delete tb.date;const wasOrder=tb.order;delete tb.order;delete tb.orderNo;delete tb.orderPay;if(wasOrder&&ui&&ui.of)ui.of.list=null;savePOS();if(page==='pos')render()}
+  if(showReceipt===false){
+    /* nomli mijozga qarzga sotuv — chek oynasi chiqmaydi, chek faqat Telegram bot orqali mijozga boradi */
+    const tgOk=!!(TGBOT&&cli&&TGL.has(cli.id));
+    toast('Sotuv saqlandi: '+doc.no+' (qarzga). '+(tgOk?'Chek mijozning Telegramiga yuboriladi.':"Mijoz Telegram botga ulanmagan — chek yuborilmaydi."));
+    return;
+  }
   toast('Sotuv saqlandi: '+doc.no+(isDebt?' (qarzga)':''));
   receiptModal(doc);
 }
@@ -1139,7 +1145,7 @@ async function debtSaleForClient(){
   const total=r2(t.lines.reduce((a,l)=>a+lineSum(l),0));
   if(total<=0){toast("Jami summa 0 — sotuvni saqlab bo'lmaydi",true);return}
   if(!confirm(`${cli.name} ga ${money(total)} qarzga yozilsinmi?`))return;
-  await commitSale(t,cli,total,[{cb:BAL,amount:total,currency:base()}],t.note||'');
+  await commitSale(t,cli,total,[{cb:BAL,amount:total,currency:base()}],t.note||'',false);
 }
 function receiptHTML(d){
   const c=S.config;const vatOn=c.showVat;
