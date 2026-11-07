@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Balans</title>
-<meta name="theme-color" content="#E6E8EB">
+<meta name="theme-color" content="#020A2F">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -24,12 +24,12 @@
 :root{
   /* Balans — kulrang va oq palitra, qora rang ishlatilmaydi. Rejimni faqat ilovadagi tugma o'zgartiradi. */
   --bg:#F6F8FA; --panel:#FFFFFF; --soft:#F6F8FA; --line:#D0D7DE; --ink:#1F2328; --ink2:#59636E;
-  --acc:#0969DA; --accInk:#FFFFFF; --accSoft:#DDF4FF; --accLine:#54AEFF;
+  --acc:#00875A; --accInk:#FFFFFF; --accSoft:#DDF8EE; --accLine:#00C083;
   --glow:none;
-  --vio:#0969DA; --vioSoft:#DDF4FF;
-  --ok:#116329; --okSoft:#DAFBE1; --warn:#7D4E00; --warnSoft:#FFF8C5; --bad:#CF222E; --badSoft:#FFEBE9; --badInk:#FFFFFF; --blue:#0969DA;
-  --hdrBg:#F6F8FA; --hdrInk:#59636E; --hdrHi:#1F2328; --hdrLine:rgba(31,35,40,.15); --hdrBtn:rgba(208,215,222,.35);
-  --side:#F6F8FA; --sideInk:#59636E; --sideHi:#1F2328;
+  --vio:#00875A; --vioSoft:#DDF8EE;
+  --ok:#116329; --okSoft:#DAFBE1; --warn:#7D4E00; --warnSoft:#FFF8C5; --bad:#CF222E; --badSoft:#FFEBE9; --badInk:#FFFFFF; --blue:#1E3A8A;
+  --hdrBg:#020A2F; --hdrInk:#A9B6D6; --hdrHi:#FFFFFF; --hdrLine:rgba(255,255,255,.14); --hdrBtn:rgba(255,255,255,.1);
+  --side:#020A2F; --sideInk:#A9B6D6; --sideHi:#FFFFFF;
   --hero:#FFFFFF; --heroInk:#1F2328; --heroMute:#59636E; --tile:#F6F8FA; --tileLine:#D8DEE4;
   --overlay:rgba(31,35,40,.4); --shadow:0 8px 24px rgba(140,149,159,.2);
   color-scheme:light;
@@ -38,11 +38,11 @@
 :root[data-hbmode="night"]{
   /* Tungi rejim — o'rta kulrang, qora emas. Faqat ilovadagi tugma bilan yoqiladi */
   --bg:#22272E; --panel:#2D333B; --soft:#373E47; --line:#444C56; --ink:#CDD9E5; --ink2:#A6B2BE;
-  --acc:#539BF5; --accInk:#22272E; --accSoft:rgba(83,155,245,.2); --accLine:#316DCA;
-  --vio:#539BF5; --vioSoft:rgba(83,155,245,.2);
+  --acc:#2DD4A0; --accInk:#02150F; --accSoft:rgba(0,192,131,.2); --accLine:#00A06A;
+  --vio:#2DD4A0; --vioSoft:rgba(0,192,131,.2);
   --ok:#6BC46D; --okSoft:rgba(87,171,90,.2); --warn:#DAAA3F; --warnSoft:rgba(198,144,38,.2); --bad:#FF938A; --badSoft:rgba(244,112,103,.2); --badInk:#22272E; --blue:#6CB6FF;
-  --hdrBg:#2D333B; --hdrInk:#A6B2BE; --hdrHi:#CDD9E5; --hdrLine:rgba(205,217,229,.16); --hdrBtn:rgba(205,217,229,.1);
-  --side:#2D333B; --sideInk:#A6B2BE; --sideHi:#CDD9E5;
+  --hdrBg:#020A2F; --hdrInk:#A9B6D6; --hdrHi:#FFFFFF; --hdrLine:rgba(255,255,255,.14); --hdrBtn:rgba(255,255,255,.1);
+  --side:#020A2F; --sideInk:#A9B6D6; --sideHi:#FFFFFF;
   --hero:#2D333B; --heroInk:#CDD9E5; --heroMute:#A6B2BE; --tile:#373E47; --tileLine:#444C56;
   --overlay:rgba(34,39,46,.6); --shadow:0 8px 24px rgba(1,4,9,.4);
   color-scheme:dark;
@@ -359,7 +359,7 @@ input[type=date]{cursor:pointer}
 .sgbox .sgi.on,.sgbox .sgi:hover{background:var(--accSoft)}
 .sgbox .sgi small{color:var(--ink2);white-space:nowrap}
 .sgbox .sgi small.neg{color:var(--bad)}
-nav a.on{color:var(--hdrHi);background:var(--panel);box-shadow:0 0 0 1px var(--line)}
+nav a.on{color:var(--ink);background:var(--panel);box-shadow:none}
 nav a.on::before{background:var(--acc);opacity:1}
 nav a{--gc:var(--ink2)}
 nav a[data-g="1"],nav a[data-g="2"],nav a[data-g="3"]{--gc:var(--ink2)}
@@ -411,7 +411,7 @@ const fdt=s=>s?s.slice(0,10).split('-').reverse().join('.'):'';
 const ftime=s=>{if(!s)return'';const d=new Date(s);return fdt(localDate(d))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-function setMode(m){m=m==='night'?'night':'day';document.documentElement.dataset.hbmode=m;lsSet('hb_mode',m);const t=document.querySelector('meta[name=theme-color]');if(t)t.content=m==='night'?'#474C53':'#E6E8EB'}
+function setMode(m){m=m==='night'?'night':'day';document.documentElement.dataset.hbmode=m;lsSet('hb_mode',m);const t=document.querySelector('meta[name=theme-color]');if(t)t.content='#020A2F'}
 setMode(lsGet('hb_mode','day'));
 function toast(msg,err){const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),err?4200:2400)}
 
