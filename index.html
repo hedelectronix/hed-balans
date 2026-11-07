@@ -948,7 +948,7 @@ VIEWS.pos=()=>{
     <div class="tbl-wrap"><table class="stbl"><thead><tr><th style="width:36px">#</th><th>Mahsulot</th><th style="width:110px">Miqdor</th><th style="width:140px">Narx (${base()})</th><th class="n" style="width:130px">Summa</th><th style="width:44px"></th></tr></thead><tbody id="sBody"></tbody></table></div>
     <div class="sale-foot">
       <label class="field"><span>Izoh</span><textarea id="sNote" placeholder="Izoh">${esc(curTab().note||'')}</textarea></label>
-      <div class="sale-tot"><div><span class="muted">Oraliq jami:</span><b id="tSub"></b></div><div><span class="muted">Chegirma:</span><b id="tDisc"></b></div><div class="big"><span>Jami:</span><b id="tTot"></b></div><div class="muted" id="tUzs" style="justify-content:flex-end"></div>
+      <div class="sale-tot"><div><span class="muted">Oraliq jami:</span><b id="tSub"></b></div><div style="display:none"><span class="muted">Chegirma:</span><b id="tDisc"></b></div><div class="big"><span>Jami:</span><b id="tTot"></b></div><div class="muted" id="tUzs" style="justify-content:flex-end"></div>
         <div class="btns"><button class="btn" id="sClear">Tozalash</button><button class="btn pri" id="sPay">To'lovga o'tish</button></div></div>
     </div></div>`);
   $('#posRet').onclick=returnPicker;
