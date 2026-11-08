@@ -1658,7 +1658,7 @@ function lineEditor(o,{withPrice,wh,priceOf}){
 }
 
 /* ---------- Purchases ---------- */
-function purNums(){const m={};const st=num(S.config.purStartNo)||1;D.docs.filter(d=>d.type==='purchase').slice().sort((a,b)=>a.createdAt<b.createdAt?-1:1).forEach((d,i)=>m[d.id]=st+i);
+function purNums(){const m={};const st=num(S.config.purStartNo)||1;const cnt={};D.docs.filter(d=>d.type==='purchase').slice().sort((a,b)=>a.createdAt<b.createdAt?-1:1).forEach(d=>{const k=d.date||'';cnt[k]=(cnt[k]||0)+1;m[d.id]=st+cnt[k]-1});
   let r=1;D.docs.filter(d=>d.type==='supplier_return').slice().sort((a,b)=>a.createdAt<b.createdAt?-1:1).forEach(d=>m[d.id]='TQ'+(r++));return m}
 const PU_COLS=[['date','Sana',true],['sup',"Ta'minotchi",true],['sum','Summa',true],['st','Status',true],['pay',"To'lov",false],['wh','Ombor',false],['by',"Mas'ul shaxs",false],['note','Izoh',false]];
 VIEWS.trash=()=>{
