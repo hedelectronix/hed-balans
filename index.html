@@ -2182,9 +2182,10 @@ async function aktExcel(cid,from,to){
   toast('Excel fayl tayyor')}
 function aktModal(cid){
   const c=S.contragents[cid];let from='',to='';
-  const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Sverka (akt)</h2><button class="btn sm" data-close>Yopish</button></div>
+  const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;gap:8px;align-items:center"><button class="btn sm" id="aBack">← Orqaga</button><h2 style="margin:0">Sverka (akt)</h2></div><button class="btn sm" data-close>Yopish</button></div>
     <div class="bar"><label>Dan <input type="date" id="aF"></label><label>Gacha <input type="date" id="aT"></label><button class="btn pri" id="aP">Chop etish / Excel</button></div><div id="aBody" class="tbl-wrap"></div>`,{side:true});
   const draw=()=>{$('#aBody',o).innerHTML=aktHTML(cid,from,to);$$('[data-doc]',o).forEach(a=>a.onclick=()=>{o.close();showDoc(a.dataset.doc)})};
+  $('#aBack',o).onclick=()=>{o.close();showContragent(cid)};
   $('#aF',o).onchange=e=>{from=e.target.value;draw()};$('#aT',o).onchange=e=>{to=e.target.value;draw()};
   $('#aP',o).onclick=()=>aktExcel(cid,from,to).catch(err=>toast("Excel fayl tayyorlanmadi: "+(err.message||err),true));
   draw()}
