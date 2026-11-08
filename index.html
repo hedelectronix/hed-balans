@@ -1050,7 +1050,7 @@ function renderCart(){
   add.onchange=()=>pick(add.value);
   add.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(dr.pid&&add.value===dr.label)commit();else pick(add.value)}};
 const sg=$('#sgBox');let sgI=-1,sgL=[];
-const sgMatch=q=>{q=nrm(q);if(!q)return [];const ws=q.split(' ');return list('products').filter(p=>p.active!==false&&ws.every(w=>nrm(p.name+' '+(p.sku||'')+' '+(p.barcode||'')+' '+(p.brand||'')).includes(w))).slice(0,8)};
+const sgMatch=q=>{q=nrm(q);if(!q)return [];const ws=q.split(' ');return list('products').filter(p=>p.active!==false&&ws.every(w=>nrm(p.name+' '+(p.sku||'')+' '+(p.barcode||'')+' '+(p.brand||'')).includes(w))).map(p=>({p,st:stockOf(p.id,POS.wh)})).filter(x=>S.config.allowNegative||x.st>0).sort((a,b)=>(b.st>0)-(a.st>0)).map(x=>x.p).slice(0,8)};
 const sgHide=()=>{if(sg){sg.hidden=true;sg.innerHTML=''}sgI=-1;sgL=[]};
 const sgPaint=()=>{sg.innerHTML=sgL.map((p,k)=>{const st=stockOf(p.id,POS.wh);return '<div class="sgi'+(k===sgI?' on':'')+'" data-k="'+k+'"><span>'+esc(p.name)+(p.sku?' <small>'+esc(p.sku)+'</small>':'')+'</span><small class="'+(st<=0?'neg':'')+'">Qoldiq: '+fmtN(st,0)+' · '+money(num(p.price))+'</small></div>'}).join('');const on=sg.querySelector('.on');if(on)on.scrollIntoView({block:'nearest'})};
 const sgShow=()=>{sgL=sgMatch(add.value);sgI=sgL.length?0:-1;if(!sgL.length){sgHide();return}const r=add.getBoundingClientRect();sg.style.left=r.left+'px';sg.style.top=(r.bottom+4)+'px';sg.style.width=Math.max(r.width,380)+'px';sg.hidden=false;sgPaint()};
