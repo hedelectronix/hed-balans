@@ -2183,11 +2183,10 @@ async function aktExcel(cid,from,to){
 function aktModal(cid){
   const c=S.contragents[cid];let from='',to='';
   const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Sverka (akt)</h2><button class="btn sm" data-close>Yopish</button></div>
-    <div class="bar"><label>Dan <input type="date" id="aF"></label><label>Gacha <input type="date" id="aT"></label><button class="btn pri" id="aP">Chop etish / PDF</button><button class="btn" id="aX">Excel</button></div><div id="aBody" class="tbl-wrap"></div>`,{side:true});
+    <div class="bar"><label>Dan <input type="date" id="aF"></label><label>Gacha <input type="date" id="aT"></label><button class="btn pri" id="aP">Chop etish / Excel</button></div><div id="aBody" class="tbl-wrap"></div>`,{side:true});
   const draw=()=>{$('#aBody',o).innerHTML=aktHTML(cid,from,to);$$('[data-doc]',o).forEach(a=>a.onclick=()=>{o.close();showDoc(a.dataset.doc)})};
   $('#aF',o).onchange=e=>{from=e.target.value;draw()};$('#aT',o).onchange=e=>{to=e.target.value;draw()};
-  $('#aP',o).onclick=()=>{$('#print').innerHTML='<div style="font:13px/1.4 sans-serif;color:#000">'+aktHTML(cid,from,to,true)+'<div style="margin-top:28px;display:flex;justify-content:space-between"><span>Do\'kon: ______________</span><span>'+esc(c.name)+': ______________</span></div></div>';window.print()};
-  $('#aX',o).onclick=()=>aktExcel(cid,from,to).catch(err=>toast("Excel fayl tayyorlanmadi: "+(err.message||err),true));
+  $('#aP',o).onclick=()=>aktExcel(cid,from,to).catch(err=>toast("Excel fayl tayyorlanmadi: "+(err.message||err),true));
   draw()}
 
 /* ---------- Cash ---------- */
