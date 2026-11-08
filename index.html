@@ -2136,12 +2136,42 @@ function showContragent(id){
   const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2>${esc(c.name)}</h2><button class="btn sm" data-close>Yopish</button></div>
    <div class="kv"><div>Telefon</div><div>${esc(c.phone||'—')}</div><div>Telegram</div><div>${esc(c.tg||'—')}</div><div>Manzil</div><div>${esc(c.address||'—')}</div><div>STIR / JSHSHIR</div><div>${esc(c.stir||'—')}</div>${c.bank?`<div>Bank</div><div>${esc(c.bank)} ${esc(c.account||'')} MFO ${esc(c.mfo||'')}</div>`:''}${c.balanceOn?(isCli(c)?`<div>${isSup(c)?'Mijoz balansi':'Balans'}</div><div><b style="font-size:17px">${money(balOf(c.id))}</b></div>`:'')+(isSup(c)?`<div>${isCli(c)?"Ta'minotchi balansi":'Balans'}</div><div><b style="font-size:17px">${money(sbalOf(c.id))}</b></div>`:''):''}<div>Sotuvlar jami</div><div><b>${money(s)}</b></div><div>Xaridlar jami</div><div><b>${money(p)}</b></div>${c.note?`<div>Izoh</div><div>${esc(c.note)}</div>`:''}</div>
    <h3>Hujjatlar</h3>${ds.length?`<div class="tbl-wrap"><table><tbody>${ds.map(d=>`<tr class="click" data-doc="${d.id}" ${d.status==='cancelled'?'style="opacity:.5"':''}><td>${fdt(d.date)}</td><td>${esc(TYPES[d.type][0])}</td><td class="muted">${esc(d.no)}</td><td class="n">${d.total!=null?money(d.total):money(d.amount,cbx(d.cb).currency)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">Hujjatlar yo\'q</p>'}
-   <div class="mfoot" style="justify-content:flex-start"><button class="btn" id="kEdit">Tahrirlash</button>${c.balanceOn&&isCli(c)?'<button class="btn pri" id="kPay">Balansga to\'lov qabul qilish</button>':''}${c.balanceOn&&isSup(c)?'<button class="btn pri" id="kSPay">Ta\'minotchiga to\'lov qilish</button>':''}</div>`,{side:true});
+   <div class="mfoot" style="justify-content:flex-start"><button class="btn" id="kEdit">Tahrirlash</button><button class="btn" id="kAkt">Sverka (akt)</button>${c.balanceOn&&isCli(c)?'<button class="btn pri" id="kPay">Balansga to\'lov qabul qilish</button>':''}${c.balanceOn&&isSup(c)?'<button class="btn pri" id="kSPay">Ta\'minotchiga to\'lov qilish</button>':''}</div>`,{side:true});
   $$('[data-doc]',o).forEach(r=>r.onclick=()=>{o.close();showDoc(r.dataset.doc)});
   $('#kEdit',o).onclick=()=>{o.close();contragentForm(c)};
+  $('#kAkt',o).onclick=()=>{o.close();aktModal(id)};
   if($('#kPay',o))$('#kPay',o).onclick=()=>{if(!allow('cash'))return;o.close();cashDocModal('cash_in',{cid:c.id})};
   if($('#kSPay',o))$('#kSPay',o).onclick=()=>{if(!allow('cash'))return;o.close();cashDocModal('cash_out',{cid:c.id})};
 }
+
+function aktHTML(cid,from,to){
+  const c=S.contragents[cid];const BALC=['sale','return','cash_in'],SUPC=['purchase','supplier_return','cash_out'];
+  const eff=d=>{const bp=(d.payments||[]).filter(p=>p.cb===BAL).reduce((a,p)=>a+num(p.amount),0);
+    if(d.type==='sale')return bp;if(d.type==='return')return -bp;if(d.type==='purchase')return bp;if(d.type==='supplier_return')return -bp;
+    if(d.type==='cash_in'||d.type==='cash_out')return -toBase(num(d.amount),cbx(d.cb).currency,d.rate);return 0};
+  const all=D.docs.filter(d=>d.cid===cid&&d.status==='active'&&(BALC.includes(d.type)||SUPC.includes(d.type))).slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const side=(title,types,sub)=>{
+    const ds=all.filter(d=>types.includes(d.type));if(!ds.length&&!sub)return '';
+    let open=0;ds.filter(d=>from&&d.date<from).forEach(d=>open+=eff(d));open=Math.round(open*100)/100;
+    let run=open;
+    const rows=ds.filter(d=>(!from||d.date>=from)&&(!to||d.date<=to)).map(d=>{const e=eff(d);run=Math.round((run+e)*100)/100;
+      const items=(d.lines||[]).map(l=>`${esc((S.products[l.pid]||{}).name||'?')} × ${fmtN(num(l.qty),0)} × ${money(num(l.price))}`).join('<br>');
+      const tot=d.total!=null?money(d.total):money(d.amount,cbx(d.cb).currency);
+      return `<tr><td style="white-space:nowrap">${fdt(d.date)}</td><td>${esc(TYPES[d.type][0])}<br><span class="muted">${esc(d.no)}</span></td><td>${items||'—'}</td><td class="n">${tot}</td><td class="n">${e?money(e):'—'}</td><td class="n"><b>${money(run)}</b></td></tr>`}).join('');
+    return `<h3 style="margin:14px 0 6px">${title}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th>Sana</th><th>Hujjat</th><th>Tarkibi (tovar × soni × narx)</th><th class="n">Hujjat summasi</th><th class="n">Qarz o'zgarishi</th><th class="n">Qoldiq</th></tr></thead><tbody><tr><td colspan="5"><i>Boshlang'ich qoldiq${from?' ('+fdt(from)+' holatiga)':''}</i></td><td class="n"><b>${money(open)}</b></td></tr>${rows||'<tr><td colspan="6" class="muted">Shu davrda hujjat yo\'q</td></tr>'}<tr><td colspan="5"><i>Yakuniy qoldiq${to?' ('+fdt(to)+' holatiga)':''}</i></td><td class="n"><b>${money(run)}</b></td></tr></tbody></table>`};
+  let h=`<h2 style="margin:0 0 4px">Sverka akti: ${esc(c.name)}</h2><div class="muted">${from?fdt(from):'boshidan'} — ${to?fdt(to):'hozirgacha'}</div>`;
+  if(isCli(c)||all.some(d=>BALC.includes(d.type)))h+=side("Mijoz hisobi (mijozning bizdan qarzi)",BALC,isCli(c));
+  if(isSup(c)||all.some(d=>SUPC.includes(d.type)))h+=side("Ta'minotchi hisobi (bizning ta'minotchidan qarzimiz)",SUPC,isSup(c));
+  return h}
+function aktModal(cid){
+  const c=S.contragents[cid];let from='',to='';
+  const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Sverka (akt)</h2><button class="btn sm" data-close>Yopish</button></div>
+    <div class="bar"><label>Dan <input type="date" id="aF"></label><label>Gacha <input type="date" id="aT"></label><button class="btn pri" id="aP">Chop etish / PDF</button></div><div id="aBody" class="tbl-wrap"></div>`,{side:true});
+  const draw=()=>{$('#aBody',o).innerHTML=aktHTML(cid,from,to)};
+  $('#aF',o).onchange=e=>{from=e.target.value;draw()};$('#aT',o).onchange=e=>{to=e.target.value;draw()};
+  $('#aP',o).onclick=()=>{$('#print').innerHTML='<div style="font:13px/1.4 sans-serif;color:#000">'+aktHTML(cid,from,to)+'<div style="margin-top:28px;display:flex;justify-content:space-between"><span>Do\'kon: ______________</span><span>'+esc(c.name)+': ______________</span></div></div>';window.print()};
+  draw()}
+
 
 /* ---------- Cash ---------- */
 VIEWS.cash=()=>{
