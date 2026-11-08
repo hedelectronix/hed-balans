@@ -2144,7 +2144,7 @@ function showContragent(id){
   if($('#kSPay',o))$('#kSPay',o).onclick=()=>{if(!allow('cash'))return;o.close();cashDocModal('cash_out',{cid:c.id})};
 }
 
-function aktHTML(cid,from,to,pr){
+function aktHTML(cid,from,to,pr,xl){
   const c=S.contragents[cid];
   const MAP={cli:{sale:{ln:1,lc:'g',pay:-1,pc:'r'},return:{ln:-1,lc:'r',pay:1,pc:'g'},cash_in:{cash:1,c:'r'}},
              sup:{purchase:{ln:1,lc:'r',pay:-1,pc:'g'},supplier_return:{ln:-1,lc:'g',pay:1,pc:'r'},cash_out:{cash:1,c:'g'}}};
@@ -2161,24 +2161,33 @@ function aktHTML(cid,from,to,pr){
     ds.forEach(d=>{rowsOf(d).forEach(r=>{
       if(from&&d.date<from){run+=r.delta;return}
       if(to&&d.date>to)return;
+      r.d0=r.delta;
       const lr=rows[rows.length-1];
       if(r.line&&lr&&lr.line&&lr.d===d&&lr.col===r.col){lr.items.push(r);lr.delta+=r.delta;lr.v+=r.v;lr.shown=money(lr.v)}else{r.items=[r];rows.push(r)}})});
     run=Math.round(run*100)/100;const open=run;
+    if(xl)xl.push(['','',"Boshlang'ich qoldiq"+(from?' ('+fdt(from)+' holatiga)':''),'','','','',open]);
     const fb=v=>`<span style="color:${v>0.004?'#2e9e3e':v<-0.004?'#d33':'inherit'}">${v>0.004?'+':''}${money(v)}</span>`;
-    let curD='',gS=0,rS=0;const sub=()=>curD?`<tr style="background:rgba(128,128,128,.14);font-weight:700"><td colspan="4">${fdt(curD)} — kunlik jami</td><td class="n">${gS?money(gS):''}</td><td class="n">${rS?money(rS):''}</td><td class="n">${fb(run)}</td></tr>`:'';const body=rows.map(r=>{let pre='';if(r.d.date!==curD){pre=sub();curD=r.d.date;gS=0;rS=0}const av=Math.abs(r.delta);if(r.col==='g')gS+=av;else rS+=av;run=Math.round((run+r.delta)*100)/100;const dn=TYPES[r.d.type][0]+' '+esc(r.d.no);
+    let curD='',gS=0,rS=0;const sub=()=>curD?(xl&&xl.push([curD,'Kunlik jami','','','',gS||'',rS||'',run]),`<tr style="background:rgba(128,128,128,.14);font-weight:700"><td colspan="4">${fdt(curD)} — kunlik jami</td><td class="n">${gS?money(gS):''}</td><td class="n">${rS?money(rS):''}</td><td class="n">${fb(run)}</td></tr>`):'';const body=rows.map(r=>{let pre='';if(r.d.date!==curD){pre=sub();curD=r.d.date;gS=0;rS=0}const av=Math.abs(r.delta);if(r.col==='g')gS+=av;else rS+=av;const b0=run;run=Math.round((run+r.delta)*100)/100;if(xl){let rb=b0;(r.items||[r]).forEach(x=>{rb=Math.round((rb+x.d0)*100)/100;xl.push([r.d.date,TYPES[r.d.type][0]+' '+r.d.no,x.name,x.qty,x.price,x.col==='g'?Math.abs(x.d0):'',x.col==='r'?Math.abs(x.d0):'',rb])})}const dn=TYPES[r.d.type][0]+' '+esc(r.d.no);
       return pre+`<tr><td style="white-space:nowrap">${pr?'<b>'+dn+'</b>':`<a data-doc="${r.d.id}" style="color:#2563eb;cursor:pointer;font-weight:600">${dn}</a>`}<br><span class="muted">${fdt(r.d.date)}</span></td><td>${(r.items||[r]).map(x=>esc(x.name)).join('<br>')}</td><td class="n">${(r.items||[r]).map(x=>x.qty!==''?fmtN(x.qty,0)+' dn':'&nbsp;').join('<br>')}</td><td class="n">${(r.items||[r]).map(x=>x.price!==''?money(x.price):'&nbsp;').join('<br>')}</td><td class="n">${r.col==='g'?r.shown:''}</td><td class="n">${r.col==='r'?r.shown:''}</td><td class="n">${fb(run)}</td></tr>`}).join('')+sub();
+    if(xl)xl.push(['','',"Yakuniy qoldiq"+(to?' ('+fdt(to)+' holatiga)':''),'','','','',run]);
     const warn=(!from&&!to&&Math.abs(run-appBal)>0.009)?`<p class="muted" style="margin:6px 0">Eslatma: ilova balansi ${money(appBal)} (ba'zi hujjatlar qo'lda tuzatilgan bo'lishi mumkin).</p>`:'';
     return `<h3 style="margin:14px 0 6px">${title}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Hujjat</th><th style="text-align:left">Mahsulot nomi</th><th class="n">Miqdor</th><th class="n">Narx</th><th class="n">Berilgan</th><th class="n">Olingan</th><th class="n">Balans</th></tr></thead><tbody><tr><td colspan="6"><i>Boshlang'ich qoldiq${from?' ('+fdt(from)+' holatiga)':''}</i></td><td class="n"><b>${fb(open)}</b></td></tr>${body||'<tr><td colspan="7" class="muted">Shu davrda hujjat yo\'q</td></tr>'}<tr><td colspan="6"><i>Yakuniy qoldiq${to?' ('+fdt(to)+' holatiga)':''}</i></td><td class="n"><b>${fb(run)}</b></td></tr></tbody></table>${warn}`};
   let h=`<h2 style="margin:0 0 4px">Sverka akti: ${esc(c.name)}</h2><div class="muted">${from?fdt(from):'boshidan'} — ${to?fdt(to):'hozirgacha'}</div>`;
   h+=side("Umumiy hisob (musbat: kontragent bizdan qarz; manfiy: biz qarzmiz)",isCli(c)||isSup(c),balOf(cid)-sbalOf(cid));
   return h}
+async function aktExcel(cid,from,to){
+  const c=S.contragents[cid],xl=[];aktHTML(cid,from,to,true,xl);
+  const nm=(c.name||'kontragent').replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'');
+  await saveFile('sverka_'+nm+'_'+today()+'.xlsx',await XL.write([{name:('Sverka '+(c.name||'')).slice(0,31),head:['Sana','Hujjat','Mahsulot nomi','Miqdor','Narx','Berilgan','Olingan','Balans'],types:['d','s','s','n','m','m','m','m'],rows:xl}]));
+  toast('Excel fayl tayyor')}
 function aktModal(cid){
   const c=S.contragents[cid];let from='',to='';
   const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Sverka (akt)</h2><button class="btn sm" data-close>Yopish</button></div>
-    <div class="bar"><label>Dan <input type="date" id="aF"></label><label>Gacha <input type="date" id="aT"></label><button class="btn pri" id="aP">Chop etish / PDF</button></div><div id="aBody" class="tbl-wrap"></div>`,{side:true});
+    <div class="bar"><label>Dan <input type="date" id="aF"></label><label>Gacha <input type="date" id="aT"></label><button class="btn pri" id="aP">Chop etish / PDF</button><button class="btn" id="aX">Excel</button></div><div id="aBody" class="tbl-wrap"></div>`,{side:true});
   const draw=()=>{$('#aBody',o).innerHTML=aktHTML(cid,from,to);$$('[data-doc]',o).forEach(a=>a.onclick=()=>{o.close();showDoc(a.dataset.doc)})};
   $('#aF',o).onchange=e=>{from=e.target.value;draw()};$('#aT',o).onchange=e=>{to=e.target.value;draw()};
   $('#aP',o).onclick=()=>{$('#print').innerHTML='<div style="font:13px/1.4 sans-serif;color:#000">'+aktHTML(cid,from,to,true)+'<div style="margin-top:28px;display:flex;justify-content:space-between"><span>Do\'kon: ______________</span><span>'+esc(c.name)+': ______________</span></div></div>';window.print()};
+  $('#aX',o).onclick=()=>aktExcel(cid,from,to).catch(err=>toast("Excel fayl tayyorlanmadi: "+(err.message||err),true));
   draw()}
 
 /* ---------- Cash ---------- */
