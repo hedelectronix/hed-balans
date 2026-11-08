@@ -1229,11 +1229,11 @@ function showDoc(id){
   const hist=`<h3>O'zgarishlar tarixi</h3><div class="kv"><div>${ftime(d.createdAt)}</div><div>Yaratildi — ${esc(d.by)}</div>${d.cancel?`<div>${ftime(d.cancel.at)}</div><div>Bekor qilindi — ${esc(d.cancel.by)}${d.cancel.note?': '+esc(d.cancel.note):''}</div>`:''}${actives(['return','supplier_return']).filter(r=>r.ref===d.id).map(r=>`<div>${ftime(r.createdAt)}</div><div>Qaytarish ${esc(r.no)} — ${esc(r.by)}</div>`).join('')}</div>`;
   const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2>${esc(T)} ${esc(d.no)}</h2><button class="btn sm" data-close>Yopish</button></div>
    <div class="kv">${kv}</div>${closeT}${lines}${pays}${hist}
-   <div class="mfoot" style="justify-content:flex-start">${['sale','return'].includes(d.type)?'<button class="btn" id="dPrint">Chek</button>':''}${d.type==='sale'&&d.status==='active'&&canSee('sales')?'<button class="btn" id="dRet">Qaytarish yaratish</button>':''}${d.type==='purchase'&&d.status==='active'&&canSee('purchases')?'<button class="btn" id="dSRet">Ta\'minotchiga qaytarish</button>':''}${d.status==='active'&&(isAdmin()||d.byId===me().id)?'<button class="btn danger" id="dCancel">Bekor qilish</button>':''}</div>`,{side:true});
+   <div class="mfoot" style="justify-content:flex-start">${['sale','return'].includes(d.type)?'<button class="btn" id="dPrint">Chek</button>':''}${d.type==='sale'&&d.status==='active'&&canSee('sales')?'<button class="btn" id="dRet">Qaytarish yaratish</button>':''}${d.type==='purchase'&&d.status==='active'&&canSee('purchases')?'<button class="btn" id="dSRet">Tahrirlash</button>':''}${d.status==='active'&&(isAdmin()||d.byId===me().id)?'<button class="btn danger" id="dCancel">Bekor qilish</button>':''}</div>`,{side:true});
   $$('[data-open]',o).forEach(a=>a.onclick=e=>{e.preventDefault();o.close();showDoc(a.dataset.open)});
   if($('#dPrint',o))$('#dPrint',o).onclick=()=>receiptModal(d);
   if($('#dRet',o))$('#dRet',o).onclick=()=>{o.close();returnModal(d,returned)};
-  if($('#dSRet',o))$('#dSRet',o).onclick=()=>{o.close();supReturnModal(d)};
+  if($('#dSRet',o))$('#dSRet',o).onclick=()=>{const er=purEditErr(d);if(er){toast(er,true);return}o.close();purchaseModal(d)};
   let cancelling=false;
   if($('#dCancel',o))$('#dCancel',o).onclick=async()=>{
     if(cancelling)return;
