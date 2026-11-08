@@ -2149,16 +2149,16 @@ function aktHTML(cid,from,to,pr){
   const MAP={cli:{sale:{ln:1,lc:'g',pay:-1,pc:'r'},return:{ln:-1,lc:'r',pay:1,pc:'g'},cash_in:{cash:1,c:'r'}},
              sup:{purchase:{ln:1,lc:'r',pay:-1,pc:'g'},supplier_return:{ln:-1,lc:'g',pay:1,pc:'r'},cash_out:{cash:1,c:'g'}}};
   const docs=D.docs.filter(d=>d.cid===cid&&d.status==='active').slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  const rowsOf=(d,kind)=>{const m=MAP[kind][d.type];if(!m)return [];const out=[];
-    if(m.cash){const cur=cbx(d.cb).currency;out.push({d,name:'',qty:'',price:'',delta:-toBase(num(d.amount),cur,d.rate),col:m.c,shown:money(d.amount,cur)});return out}
-    let sum=0;(d.lines||[]).forEach(l=>{const v=num(l.qty)*num(l.price);sum+=v;out.push({d,name:(S.products[l.pid]||{}).name||'?',qty:num(l.qty),price:num(l.price),delta:m.ln*v,col:m.lc,shown:money(v),line:1,v})});
-    if(d.total!=null&&Math.abs(num(d.total)-sum)>0.009&&out.length){const f=num(d.total)-sum;out.push({d,name:'Chegirma / farq',qty:'',price:'',delta:m.ln*f,col:m.lc,shown:money(f),line:1,v:f})}
-    (d.payments||[]).filter(p=>p.cb!==BAL).forEach(p=>{const cur=cbx(p.cb).currency;out.push({d,name:"To'lov ("+((cbx(p.cb)||{}).name||'kassa')+')',qty:'',price:'',delta:m.pay*toBase(num(p.amount),cur,d.rate),col:m.pc,shown:money(p.amount,cur)})});
+  const rowsOf=d=>{const kind=MAP.cli[d.type]?'cli':'sup',sg=kind==='sup'?-1:1;const m=MAP[kind][d.type];if(!m)return [];const out=[];
+    if(m.cash){const cur=cbx(d.cb).currency;out.push({d,name:'',qty:'',price:'',delta:sg*-toBase(num(d.amount),cur,d.rate),col:m.c,shown:money(d.amount,cur)});return out}
+    let sum=0;(d.lines||[]).forEach(l=>{const v=num(l.qty)*num(l.price);sum+=v;out.push({d,name:(S.products[l.pid]||{}).name||'?',qty:num(l.qty),price:num(l.price),delta:sg*m.ln*v,col:m.lc,shown:money(v),line:1,v})});
+    if(d.total!=null&&Math.abs(num(d.total)-sum)>0.009&&out.length){const f=num(d.total)-sum;out.push({d,name:'Chegirma / farq',qty:'',price:'',delta:sg*m.ln*f,col:m.lc,shown:money(f),line:1,v:f})}
+    (d.payments||[]).filter(p=>p.cb!==BAL).forEach(p=>{const cur=cbx(p.cb).currency;out.push({d,name:"To'lov ("+((cbx(p.cb)||{}).name||'kassa')+')',qty:'',price:'',delta:sg*m.pay*toBase(num(p.amount),cur,d.rate),col:m.pc,shown:money(p.amount,cur)})});
     return out};
-  const side=(title,kind,force,appBal)=>{
-    const ds=docs.filter(d=>MAP[kind][d.type]);if(!ds.length&&!force)return '';
+  const side=(title,force,appBal)=>{
+    const ds=docs.filter(d=>MAP.cli[d.type]||MAP.sup[d.type]);if(!ds.length&&!force)return '';
     let run=0;const rows=[];
-    ds.forEach(d=>{rowsOf(d,kind).forEach(r=>{
+    ds.forEach(d=>{rowsOf(d).forEach(r=>{
       if(from&&d.date<from){run+=r.delta;return}
       if(to&&d.date>to)return;
       const lr=rows[rows.length-1];
@@ -2170,8 +2170,7 @@ function aktHTML(cid,from,to,pr){
     const warn=(!from&&!to&&Math.abs(run-appBal)>0.009)?`<p class="muted" style="margin:6px 0">Eslatma: ilova balansi ${money(appBal)} (ba'zi hujjatlar qo'lda tuzatilgan bo'lishi mumkin).</p>`:'';
     return `<h3 style="margin:14px 0 6px">${title}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Hujjat</th><th style="text-align:left">Mahsulot nomi</th><th class="n">Miqdor</th><th class="n">Narx</th><th class="n">Berilgan</th><th class="n">Olingan</th><th class="n">Balans</th></tr></thead><tbody><tr><td colspan="6"><i>Boshlang'ich qoldiq${from?' ('+fdt(from)+' holatiga)':''}</i></td><td class="n"><b>${fb(open)}</b></td></tr>${body||'<tr><td colspan="7" class="muted">Shu davrda hujjat yo\'q</td></tr>'}<tr><td colspan="6"><i>Yakuniy qoldiq${to?' ('+fdt(to)+' holatiga)':''}</i></td><td class="n"><b>${fb(run)}</b></td></tr></tbody></table>${warn}`};
   let h=`<h2 style="margin:0 0 4px">Sverka akti: ${esc(c.name)}</h2><div class="muted">${from?fdt(from):'boshidan'} — ${to?fdt(to):'hozirgacha'}</div>`;
-  h+=side("Mijoz hisobi (musbat: mijoz bizdan qarz)",'cli',isCli(c),balOf(cid));
-  h+=side("Ta'minotchi hisobi (musbat: biz ta'minotchidan qarzmiz)",'sup',isSup(c),sbalOf(cid));
+  h+=side("Umumiy hisob (musbat: kontragent bizdan qarz; manfiy: biz qarzmiz)",isCli(c)||isSup(c),balOf(cid)-sbalOf(cid));
   return h}
 function aktModal(cid){
   const c=S.contragents[cid];let from='',to='';
