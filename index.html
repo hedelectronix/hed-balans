@@ -2151,8 +2151,8 @@ function aktHTML(cid,from,to,pr){
   const docs=D.docs.filter(d=>d.cid===cid&&d.status==='active').slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   const rowsOf=(d,kind)=>{const m=MAP[kind][d.type];if(!m)return [];const out=[];
     if(m.cash){const cur=cbx(d.cb).currency;out.push({d,name:'',qty:'',price:'',delta:-toBase(num(d.amount),cur,d.rate),col:m.c,shown:money(d.amount,cur)});return out}
-    let sum=0;(d.lines||[]).forEach(l=>{const v=num(l.qty)*num(l.price);sum+=v;out.push({d,name:(S.products[l.pid]||{}).name||'?',qty:num(l.qty),price:num(l.price),delta:m.ln*v,col:m.lc,shown:money(v)})});
-    if(d.total!=null&&Math.abs(num(d.total)-sum)>0.009&&out.length){const f=num(d.total)-sum;out.push({d,name:'Chegirma / farq',qty:'',price:'',delta:m.ln*f,col:m.lc,shown:money(f)})}
+    let sum=0;(d.lines||[]).forEach(l=>{const v=num(l.qty)*num(l.price);sum+=v;out.push({d,name:(S.products[l.pid]||{}).name||'?',qty:num(l.qty),price:num(l.price),delta:m.ln*v,col:m.lc,shown:money(v),line:1,v})});
+    if(d.total!=null&&Math.abs(num(d.total)-sum)>0.009&&out.length){const f=num(d.total)-sum;out.push({d,name:'Chegirma / farq',qty:'',price:'',delta:m.ln*f,col:m.lc,shown:money(f),line:1,v:f})}
     (d.payments||[]).filter(p=>p.cb!==BAL).forEach(p=>{const cur=cbx(p.cb).currency;out.push({d,name:"To'lov ("+((cbx(p.cb)||{}).name||'kassa')+')',qty:'',price:'',delta:m.pay*toBase(num(p.amount),cur,d.rate),col:m.pc,shown:money(p.amount,cur)})});
     return out};
   const side=(title,kind,force,appBal)=>{
@@ -2161,11 +2161,12 @@ function aktHTML(cid,from,to,pr){
     ds.forEach(d=>{rowsOf(d,kind).forEach(r=>{
       if(from&&d.date<from){run+=r.delta;return}
       if(to&&d.date>to)return;
-      rows.push(r)})});
+      const lr=rows[rows.length-1];
+      if(r.line&&lr&&lr.line&&lr.d===d&&lr.col===r.col){lr.items.push(r);lr.delta+=r.delta;lr.v+=r.v;lr.shown=money(lr.v)}else{r.items=[r];rows.push(r)}})});
     run=Math.round(run*100)/100;const open=run;
     const fb=v=>`<span style="color:${v>0.004?'#2e9e3e':v<-0.004?'#d33':'inherit'}">${v>0.004?'+':''}${money(v)}</span>`;
     let curD='',gS=0,rS=0;const sub=()=>curD?`<tr style="background:rgba(128,128,128,.14);font-weight:700"><td colspan="4">${fdt(curD)} — kunlik jami</td><td class="n">${gS?money(gS):''}</td><td class="n">${rS?money(rS):''}</td><td class="n">${fb(run)}</td></tr>`:'';const body=rows.map(r=>{let pre='';if(r.d.date!==curD){pre=sub();curD=r.d.date;gS=0;rS=0}const av=Math.abs(r.delta);if(r.col==='g')gS+=av;else rS+=av;run=Math.round((run+r.delta)*100)/100;const dn=TYPES[r.d.type][0]+' '+esc(r.d.no);
-      return pre+`<tr><td style="white-space:nowrap">${pr?'<b>'+dn+'</b>':`<a data-doc="${r.d.id}" style="color:#2563eb;cursor:pointer;font-weight:600">${dn}</a>`}<br><span class="muted">${fdt(r.d.date)}</span></td><td>${esc(r.name)}</td><td class="n">${r.qty!==''?fmtN(r.qty,0)+' dn':''}</td><td class="n">${r.price!==''?money(r.price):''}</td><td class="n">${r.col==='g'?r.shown:''}</td><td class="n">${r.col==='r'?r.shown:''}</td><td class="n">${fb(run)}</td></tr>`}).join('')+sub();
+      return pre+`<tr><td style="white-space:nowrap">${pr?'<b>'+dn+'</b>':`<a data-doc="${r.d.id}" style="color:#2563eb;cursor:pointer;font-weight:600">${dn}</a>`}<br><span class="muted">${fdt(r.d.date)}</span></td><td>${(r.items||[r]).map(x=>esc(x.name)).join('<br>')}</td><td class="n">${(r.items||[r]).map(x=>x.qty!==''?fmtN(x.qty,0)+' dn':'&nbsp;').join('<br>')}</td><td class="n">${(r.items||[r]).map(x=>x.price!==''?money(x.price):'&nbsp;').join('<br>')}</td><td class="n">${r.col==='g'?r.shown:''}</td><td class="n">${r.col==='r'?r.shown:''}</td><td class="n">${fb(run)}</td></tr>`}).join('')+sub();
     const warn=(!from&&!to&&Math.abs(run-appBal)>0.009)?`<p class="muted" style="margin:6px 0">Eslatma: ilova balansi ${money(appBal)} (ba'zi hujjatlar qo'lda tuzatilgan bo'lishi mumkin).</p>`:'';
     return `<h3 style="margin:14px 0 6px">${title}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Hujjat</th><th style="text-align:left">Mahsulot nomi</th><th class="n">Miqdor</th><th class="n">Narx</th><th class="n">Berilgan</th><th class="n">Olingan</th><th class="n">Balans</th></tr></thead><tbody><tr><td colspan="6"><i>Boshlang'ich qoldiq${from?' ('+fdt(from)+' holatiga)':''}</i></td><td class="n"><b>${fb(open)}</b></td></tr>${body||'<tr><td colspan="7" class="muted">Shu davrda hujjat yo\'q</td></tr>'}<tr><td colspan="6"><i>Yakuniy qoldiq${to?' ('+fdt(to)+' holatiga)':''}</i></td><td class="n"><b>${fb(run)}</b></td></tr></tbody></table>${warn}`};
   let h=`<h2 style="margin:0 0 4px">Sverka akti: ${esc(c.name)}</h2><div class="muted">${from?fdt(from):'boshidan'} — ${to?fdt(to):'hozirgacha'}</div>`;
