@@ -2144,34 +2144,42 @@ function showContragent(id){
   if($('#kSPay',o))$('#kSPay',o).onclick=()=>{if(!allow('cash'))return;o.close();cashDocModal('cash_out',{cid:c.id})};
 }
 
-function aktHTML(cid,from,to){
-  const c=S.contragents[cid];const BALC=['sale','return','cash_in'],SUPC=['purchase','supplier_return','cash_out'];
-  const eff=d=>{const bp=(d.payments||[]).filter(p=>p.cb===BAL).reduce((a,p)=>a+num(p.amount),0);
-    if(d.type==='sale')return bp;if(d.type==='return')return -bp;if(d.type==='purchase')return bp;if(d.type==='supplier_return')return -bp;
-    if(d.type==='cash_in'||d.type==='cash_out')return -toBase(num(d.amount),cbx(d.cb).currency,d.rate);return 0};
-  const all=D.docs.filter(d=>d.cid===cid&&d.status==='active'&&(BALC.includes(d.type)||SUPC.includes(d.type))).slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  const side=(title,types,sub)=>{
-    const ds=all.filter(d=>types.includes(d.type));if(!ds.length&&!sub)return '';
-    let open=0;ds.filter(d=>from&&d.date<from).forEach(d=>open+=eff(d));open=Math.round(open*100)/100;
-    let run=open;
-    const rows=ds.filter(d=>(!from||d.date>=from)&&(!to||d.date<=to)).map(d=>{const e=eff(d);run=Math.round((run+e)*100)/100;
-      const items=(d.lines||[]).map(l=>`${esc((S.products[l.pid]||{}).name||'?')} × ${fmtN(num(l.qty),0)} × ${money(num(l.price))}`).join('<br>');
-      const tot=d.total!=null?money(d.total):money(d.amount,cbx(d.cb).currency);
-      return `<tr><td style="white-space:nowrap">${fdt(d.date)}</td><td>${esc(TYPES[d.type][0])}<br><span class="muted">${esc(d.no)}</span></td><td>${items||'—'}</td><td class="n">${tot}</td><td class="n">${e?money(e):'—'}</td><td class="n"><b>${money(run)}</b></td></tr>`}).join('');
-    return `<h3 style="margin:14px 0 6px">${title}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th>Sana</th><th>Hujjat</th><th>Tarkibi (tovar × soni × narx)</th><th class="n">Hujjat summasi</th><th class="n">Qarz o'zgarishi</th><th class="n">Qoldiq</th></tr></thead><tbody><tr><td colspan="5"><i>Boshlang'ich qoldiq${from?' ('+fdt(from)+' holatiga)':''}</i></td><td class="n"><b>${money(open)}</b></td></tr>${rows||'<tr><td colspan="6" class="muted">Shu davrda hujjat yo\'q</td></tr>'}<tr><td colspan="5"><i>Yakuniy qoldiq${to?' ('+fdt(to)+' holatiga)':''}</i></td><td class="n"><b>${money(run)}</b></td></tr></tbody></table>`};
+function aktHTML(cid,from,to,pr){
+  const c=S.contragents[cid];
+  const MAP={cli:{sale:{ln:1,lc:'g',pay:-1,pc:'r'},return:{ln:-1,lc:'r',pay:1,pc:'g'},cash_in:{cash:1,c:'r'}},
+             sup:{purchase:{ln:1,lc:'r',pay:-1,pc:'g'},supplier_return:{ln:-1,lc:'g',pay:1,pc:'r'},cash_out:{cash:1,c:'g'}}};
+  const docs=D.docs.filter(d=>d.cid===cid&&d.status==='active').slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const rowsOf=(d,kind)=>{const m=MAP[kind][d.type];if(!m)return [];const out=[];
+    if(m.cash){const cur=cbx(d.cb).currency;out.push({d,name:'',qty:'',price:'',delta:-toBase(num(d.amount),cur,d.rate),col:m.c,shown:money(d.amount,cur)});return out}
+    let sum=0;(d.lines||[]).forEach(l=>{const v=num(l.qty)*num(l.price);sum+=v;out.push({d,name:(S.products[l.pid]||{}).name||'?',qty:num(l.qty),price:num(l.price),delta:m.ln*v,col:m.lc,shown:money(v)})});
+    if(d.total!=null&&Math.abs(num(d.total)-sum)>0.009&&out.length){const f=num(d.total)-sum;out.push({d,name:'Chegirma / farq',qty:'',price:'',delta:m.ln*f,col:m.lc,shown:money(f)})}
+    (d.payments||[]).filter(p=>p.cb!==BAL).forEach(p=>{const cur=cbx(p.cb).currency;out.push({d,name:"To'lov ("+((cbx(p.cb)||{}).name||'kassa')+')',qty:'',price:'',delta:m.pay*toBase(num(p.amount),cur,d.rate),col:m.pc,shown:money(p.amount,cur)})});
+    return out};
+  const side=(title,kind,force,appBal)=>{
+    const ds=docs.filter(d=>MAP[kind][d.type]);if(!ds.length&&!force)return '';
+    let run=0;const rows=[];
+    ds.forEach(d=>{rowsOf(d,kind).forEach(r=>{
+      if(from&&d.date<from){run+=r.delta;return}
+      if(to&&d.date>to)return;
+      rows.push(r)})});
+    run=Math.round(run*100)/100;const open=run;
+    const fb=v=>`<span style="color:${v>0.004?'#2e9e3e':v<-0.004?'#d33':'inherit'}">${v>0.004?'+':''}${money(v)}</span>`;
+    const body=rows.map(r=>{run=Math.round((run+r.delta)*100)/100;const dn=TYPES[r.d.type][0]+' '+esc(r.d.no);
+      return `<tr><td style="white-space:nowrap">${pr?'<b>'+dn+'</b>':`<a data-doc="${r.d.id}" style="color:#2563eb;cursor:pointer;font-weight:600">${dn}</a>`}<br><span class="muted">${fdt(r.d.date)}</span></td><td>${esc(r.name)}</td><td class="n">${r.qty!==''?fmtN(r.qty,0)+' dn':''}</td><td class="n">${r.price!==''?money(r.price):''}</td><td class="n">${r.col==='g'?r.shown:''}</td><td class="n">${r.col==='r'?r.shown:''}</td><td class="n">${fb(run)}</td></tr>`}).join('');
+    const warn=(!from&&!to&&Math.abs(run-appBal)>0.009)?`<p class="muted" style="margin:6px 0">Eslatma: ilova balansi ${money(appBal)} (ba'zi hujjatlar qo'lda tuzatilgan bo'lishi mumkin).</p>`:'';
+    return `<h3 style="margin:14px 0 6px">${title}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Hujjat</th><th style="text-align:left">Mahsulot nomi</th><th class="n">Miqdor</th><th class="n">Narx</th><th class="n">Berilgan</th><th class="n">Olingan</th><th class="n">Balans</th></tr></thead><tbody><tr><td colspan="6"><i>Boshlang'ich qoldiq${from?' ('+fdt(from)+' holatiga)':''}</i></td><td class="n"><b>${fb(open)}</b></td></tr>${body||'<tr><td colspan="7" class="muted">Shu davrda hujjat yo\'q</td></tr>'}<tr><td colspan="6"><i>Yakuniy qoldiq${to?' ('+fdt(to)+' holatiga)':''}</i></td><td class="n"><b>${fb(run)}</b></td></tr></tbody></table>${warn}`};
   let h=`<h2 style="margin:0 0 4px">Sverka akti: ${esc(c.name)}</h2><div class="muted">${from?fdt(from):'boshidan'} — ${to?fdt(to):'hozirgacha'}</div>`;
-  if(isCli(c)||all.some(d=>BALC.includes(d.type)))h+=side("Mijoz hisobi (mijozning bizdan qarzi)",BALC,isCli(c));
-  if(isSup(c)||all.some(d=>SUPC.includes(d.type)))h+=side("Ta'minotchi hisobi (bizning ta'minotchidan qarzimiz)",SUPC,isSup(c));
+  h+=side("Mijoz hisobi (musbat: mijoz bizdan qarz)",'cli',isCli(c),balOf(cid));
+  h+=side("Ta'minotchi hisobi (musbat: biz ta'minotchidan qarzmiz)",'sup',isSup(c),sbalOf(cid));
   return h}
 function aktModal(cid){
   const c=S.contragents[cid];let from='',to='';
   const o=modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Sverka (akt)</h2><button class="btn sm" data-close>Yopish</button></div>
     <div class="bar"><label>Dan <input type="date" id="aF"></label><label>Gacha <input type="date" id="aT"></label><button class="btn pri" id="aP">Chop etish / PDF</button></div><div id="aBody" class="tbl-wrap"></div>`,{side:true});
-  const draw=()=>{$('#aBody',o).innerHTML=aktHTML(cid,from,to)};
+  const draw=()=>{$('#aBody',o).innerHTML=aktHTML(cid,from,to);$$('[data-doc]',o).forEach(a=>a.onclick=()=>{o.close();showDoc(a.dataset.doc)})};
   $('#aF',o).onchange=e=>{from=e.target.value;draw()};$('#aT',o).onchange=e=>{to=e.target.value;draw()};
-  $('#aP',o).onclick=()=>{$('#print').innerHTML='<div style="font:13px/1.4 sans-serif;color:#000">'+aktHTML(cid,from,to)+'<div style="margin-top:28px;display:flex;justify-content:space-between"><span>Do\'kon: ______________</span><span>'+esc(c.name)+': ______________</span></div></div>';window.print()};
+  $('#aP',o).onclick=()=>{$('#print').innerHTML='<div style="font:13px/1.4 sans-serif;color:#000">'+aktHTML(cid,from,to,true)+'<div style="margin-top:28px;display:flex;justify-content:space-between"><span>Do\'kon: ______________</span><span>'+esc(c.name)+': ______________</span></div></div>';window.print()};
   draw()}
-
 
 /* ---------- Cash ---------- */
 VIEWS.cash=()=>{
