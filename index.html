@@ -414,6 +414,9 @@ function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.pa
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function setMode(m){m=m==='night'?'night':'day';document.documentElement.dataset.hbmode=m;lsSet('hb_mode',m);const t=document.querySelector('meta[name=theme-color]');if(t)t.content='#020A2F'}
 setMode(lsGet('hb_mode','day'));
+const addDaysStr=(s,n)=>{const d=new Date(s+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
+const daysBetween=(a,b)=>Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/864e5);
+const dueTxt=(date,n)=>{n=Math.floor(num(n));return n>0?'Muddat: '+fdt(addDaysStr(date||today(),n))+' gacha':''};
 function toast(msg,err){const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),err?4200:2400)}
 
 /* ============ state & storage ============ */
@@ -865,7 +868,7 @@ VIEWS.dash=()=>{
   const low=list('products').filter(p=>p.active!==false&&num(p.minStock)>0&&stockOf(p.id)<num(p.minStock)).slice(0,6);
   const recent=D.docs.slice(-8).reverse();
   actions((canSee('pos')?`<button class="btn pri" onclick="go('pos')">Yangi sotuv</button>`:'')+(canSee('purchases')&&allow('purchase',true)?`<button class="btn blue" onclick="purchaseModal()">Yangi xarid</button>`:''));
-  C(`<div class="grid">${subReminder()}${canSee('daycash')?closeReminder():''}
+  C(`<div class="grid">${subReminder()}${dueReminder()}${canSee('daycash')?closeReminder():''}
    ${me().role==='omborchi'?'':`<div class="card hero"><div><div class="l">Kassalardagi jami pul</div><div class="v">${money(cashTotal)}</div><div class="l" style="margin-top:4px">${base()==='USD'?'≈ '+money(fromBase(cashTotal,'UZS'),'UZS'):''}</div>${rateBadge()}</div>
      <div class="cbtiles">${list('cashboxes').map(c=>{const v=D.cash[c.id]||0;return `<div class="cbtile"><span class="cn">${esc(c.name)}</span><span class="cv ${v<0?'cneg':''}">${money(v,c.currency)}</span><span class="ce">${c.currency!==base()?'≈ '+money(toBase(v,c.currency)):'&nbsp;'}</span></div>`}).join('')}</div></div>`}
    <div class="grid g4">
@@ -906,6 +909,19 @@ function ownerStrip(cashTotal,stockVal){
 function tashNow(){try{return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}))}catch(e){return new Date()}}
 function dayHasMoves(day){return D.docs.some(d=>d.status==='active'&&d.date===day&&d.type!=='cash_close'&&((d.payments||[]).some(p=>p.cb!==BAL)||['cash_in','cash_out','cash_transfer','exchange'].includes(d.type)))}
 function dayClosed(day){return actives('cash_close').some(d=>d.date===day)}
+function dueList(){const t=today(),out=[];
+  for(const d of D.docs){if(d.status!=='active'||!d.due||!(d.type==='sale'||d.type==='purchase'))continue;
+    const amt=(d.payments||[]).filter(p=>p.cb===BAL).reduce((a,p)=>a+num(p.amount),0);if(amt<=0)continue;
+    const k=d.cid||'';const open=d.type==='sale'?balOf(k):sbalOf(k);if(open<=0.009)continue;
+    out.push({d,amt:Math.min(amt,open),left:daysBetween(t,d.due),sale:d.type==='sale'})}
+  return out.sort((a,b)=>a.left-b.left)}
+function dueReminder(){const L=dueList().filter(x=>x.left<=3);if(!L.length)return '';
+  const row=x=>{const w=x.left<0?`${-x.left} kun o'tib ketdi`:x.left===0?'bugun':`${x.left} kun qoldi`;
+    return `<div class="remind ${x.left<0?'bad':'warn'}"><span>${x.sale?'💰 Mijoz to\'lashi kerak':'⏰ Ta\'minotchiga to\'lash kerak'}: <b>${esc(cname(x.d.cid))}</b> — ${money(x.amt)} · ${x.d.no} · ${fdt(x.d.due)} (${w})</span></div>`};
+  return L.map(row).join('')}
+let __dueShown='';
+function dueToast(){const L=dueList().filter(x=>x.left<=0);const k=today()+':'+L.length;if(!L.length||__dueShown===k)return;__dueShown=k;
+  toast(`Diqqat: ${L.length} ta qarz muddati keldi yoki o'tib ketdi — Bosh sahifada ko'ring`,true)}
 function closeReminder(){const t=today(),n=tashNow();const y=localDate(new Date(Date.now()-864e5));const msgs=[];
   if(dayHasMoves(y)&&!dayClosed(y))msgs.push(['bad',`Kechagi (${fdt(y)}) kassa yopilmagan`,y]);
   if(dayHasMoves(t)&&!dayClosed(t)&&(n.getHours()>17||(n.getHours()===17&&n.getMinutes()>=0)))msgs.push(['warn','Ish kuni tugayapti — bugungi kassani sanab yoping',t]);
@@ -1107,35 +1123,40 @@ function payModal(){
   const cli=t.cid?S.contragents[t.cid]:null;
   const o=modal(`<h2>To'lov — ${money(total)}</h2><p class="muted" style="margin-top:-8px">${base()==='USD'?'Kurs: '+fmtN(rate(),0)+" so'm · ≈ "+money(fromBase(total,'UZS'),'UZS'):''}</p>${err?`<div class="warnbox">${esc(err)}${t.lines.length?". To'lovni ko'rib chiqishingiz mumkin, lekin saqlab bo'lmaydi.":''}</div>`:''}
     <label class="debtbox ${cli?'':'off'}"><input type="checkbox" id="payDebt" ${cli?'':'disabled'} ${cli&&t.orderPay==='debt'?'checked':''}><span><b>Qarzga berish</b><br><span class="muted">${cli?`To'lanmagan qismi ${esc(cli.name)} balansiga qarz bo'lib yoziladi${hasBal(t.cid)?' (hozir '+money(balOf(t.cid))+')':''}. Hech narsa to'lanmasa, to'liq summa qarzga yoziladi.`:"Qarzga berish uchun sotuvda mijozni tanlang"}</span></span></label>
+    <label class="field" id="payDueBox" hidden><span>Mijozga necha kunga chiqarildi (to'lash muddati) *</span><input type="number" step="1" min="1" id="payDue" placeholder="Masalan: 7"><small class="muted" id="payDueHint"></small></label>
     <div class="paygrid" id="payGrid">${cbs.map(c=>`<div class="paycell"><label for="pay_${c.id}">${esc(c.name)}</label><div class="payin"><input type="number" step="${c.currency==='UZS'?1000:0.01}" min="0" id="pay_${c.id}" data-cb="${c.id}" placeholder="0"><span>${c.currency==='USD'?'$':"so'm"}</span></div><div class="payeq muted" data-eq="${c.id}">&nbsp;</div><button class="btn sm" data-fill="${c.id}">Qolganini shu yerga</button></div>`).join('')}</div>
     <div class="total"><span class="muted" id="payLeftL">Qoldi</span><b id="payLeft">${money(total)}</b></div>
     <div class="field"><span>Izoh</span><input type="text" id="payNote"></div>
     <div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="payOk" disabled>Sotuvni saqlash</button></div>`,{wide:true});
   const debt=()=>$('#payDebt',o).checked;
   const left=()=>{let paid=0;$$('[data-cb]',o).forEach(i=>paid+=toBase(num(i.value),cbx(i.dataset.cb).currency));return r2(total-paid)};
+  const needDue=()=>debt()&&left()>0.009;
   const upd=()=>{
+    $('#payDueBox',o).hidden=!needDue();$('#payDueHint',o).textContent=dueTxt(t.date||today(),$('#payDue',o).value);
     $$('[data-cb]',o).forEach(i=>{const c=cbx(i.dataset.cb);$(`[data-eq="${i.dataset.cb}"]`,o).textContent=num(i.value)&&c.currency!==base()?'≈ '+money(toBase(num(i.value),c.currency)):'\u00a0'});
-    if(debt()){const l=left();$('#payLeftL',o).textContent=l<-0.009?"Ortiqcha to'lov":'Qarzga yoziladi';$('#payLeft',o).textContent=money(Math.abs(l)<0.01?0:Math.abs(l));$('#payLeft',o).className=l>0.009||l<-0.009?'neg':'pos';$('#payOk',o).disabled=!!err||total<=0||l<-0.009;return}
+    if(debt()){const l=left();$('#payLeftL',o).textContent=l<-0.009?"Ortiqcha to'lov":'Qarzga yoziladi';$('#payLeft',o).textContent=money(Math.abs(l)<0.01?0:Math.abs(l));$('#payLeft',o).className=l>0.009||l<-0.009?'neg':'pos';$('#payOk',o).disabled=!!err||total<=0||l<-0.009||(l>0.009&&!(num($('#payDue',o).value)>=1));return}
     $('#payLeftL',o).textContent='Qoldi';
     const l=left();$('#payLeft',o).textContent=money(l);$('#payLeft',o).className=Math.abs(l)<0.01?'pos':l<0?'neg':'';$('#payOk',o).disabled=!!err||Math.abs(l)>=0.01||total<=0};
-  $('#payDebt',o).onchange=()=>upd();
+  $('#payDebt',o).onchange=()=>upd();$('#payDue',o).oninput=upd;
   $$('[data-cb]',o).forEach(i=>i.oninput=upd);
   $$('[data-fill]',o).forEach(b=>b.onclick=()=>{const i=$('#pay_'+b.dataset.fill,o);i.value='';const l=left();const cur=cbx(b.dataset.fill).currency;i.value=cur==='UZS'?Math.round(fromBase(l,cur)):r2(fromBase(l,cur));upd()});
   $('#payOk',o).onclick=async()=>{
     if(!allow('sale'))return;
     const lf=left();
     const payments=$$('[data-cb]',o).filter(i=>num(i.value)>0).map(i=>({cb:i.dataset.cb,amount:num(i.value),currency:cbx(i.dataset.cb).currency}));
-    if(debt()&&lf>0.009)payments.push({cb:BAL,amount:r2(lf),currency:base()});
+    let dueDays=0;
+    if(debt()&&lf>0.009){dueDays=Math.floor(num($('#payDue',o).value));if(!(dueDays>0)){toast("Mijozga necha kunga chiqarilganini (to'lash muddatini) kiriting",true);$('#payDue',o).focus();return}payments.push({cb:BAL,amount:r2(lf),currency:base()})}
     const note=$('#payNote',o).value;
     o.close();
-    await commitSale(t,cli,total,payments,note);
+    await commitSale(t,cli,total,payments,note,undefined,dueDays);
   };
 }
-async function commitSale(t,cli,total,payments,note,showReceipt){
+async function commitSale(t,cli,total,payments,note,showReceipt,dueDays){
   const isDebt=payments.some(p=>p.cb===BAL);
   const doc={kind:'doc',id:uid('d'),type:'sale',no:nextNo('sale'),date:(t.date||today()),createdAt:nowISO(),by:me().name,byId:me().id,wh:POS.wh,cid:t.cid||'',rate:rate(),
     lines:t.lines.map(l=>({pid:l.pid,name:pname(l.pid),qty:num(l.qty),price:num(l.price),disc:num(l.disc),cost:r2(D.cost[l.pid]||lastPurchase(l.pid)||0)})),payments,total,note:note||''};
   if(isDebt)doc.debt=true;
+  if(isDebt&&dueDays>0){doc.dueDays=dueDays;doc.due=addDaysStr(doc.date,dueDays)}
   if(t.order)doc.order=t.order;
   const tabIdx=POS.active;
   if(isDebt&&cli&&!cli.balanceOn)await putMaster('contragents',{...cli,balanceOn:true});
@@ -1150,6 +1171,12 @@ async function commitSale(t,cli,total,payments,note,showReceipt){
   toast('Sotuv saqlandi: '+doc.no+(isDebt?' (qarzga)':''));
   receiptModal(doc);
 }
+function askDue(title,label,date){return new Promise(res=>{let done=false;const fin=v=>{if(!done){done=true;res(v)}};
+  const o=modal(`<h2>${esc(title)}</h2><label class="field full"><span>${esc(label)}</span><input type="number" step="1" min="1" id="adDays" placeholder="Masalan: 7"><small class="muted" id="adHint"></small></label><div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="adOk">Qarzga yozish</button></div>`);
+  const i=$('#adDays',o);setTimeout(()=>i.focus(),50);i.oninput=()=>{$('#adHint',o).textContent=dueTxt(date,i.value)};
+  const ok=()=>{const n=Math.floor(num(i.value));if(!(n>0)){toast("To'lash muddatini (kun) kiriting",true);i.focus();return}fin(n);o.close()};
+  $('#adOk',o).onclick=ok;i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ok()}};
+  const mo=new MutationObserver(()=>{if(!document.body.contains(o)){mo.disconnect();fin(0)}});mo.observe(document.body,{childList:true,subtree:true})})}
 /* Mijoz tanlangan bo'lsa — to'lov oynasisiz, to'liq summa shu mijozga qarzga yoziladi */
 async function debtSaleForClient(){
   if(!allow('sale'))return;
@@ -1159,8 +1186,9 @@ async function debtSaleForClient(){
   if(err){toast(err,true);return}
   const total=r2(t.lines.reduce((a,l)=>a+lineSum(l),0));
   if(total<=0){toast("Jami summa 0 — sotuvni saqlab bo'lmaydi",true);return}
-  if(!confirm(`${cli.name} ga ${money(total)} qarzga yozilsinmi?`))return;
-  await commitSale(t,cli,total,[{cb:BAL,amount:total,currency:base()}],t.note||'',false);
+  const dd=await askDue(`${cli.name} ga ${money(total)} qarzga yoziladi`,"Mijozga necha kunga chiqarildi (to'lash muddati) *",t.date||today());
+  if(!dd)return;
+  await commitSale(t,cli,total,[{cb:BAL,amount:total,currency:base()}],t.note||'',false,dd);
 }
 function receiptHTML(d){
   const c=S.config;const vatOn=c.showVat;
@@ -1220,6 +1248,7 @@ function showDoc(id){
   if(['sale','return','purchase','supplier_return'].includes(d.type))kv+=`<div>${(d.type==='purchase'||d.type==='supplier_return')?"Ta'minotchi":'Mijoz'}</div><div>${esc(cname(d.cid))}</div>`;
   if(d.cb)kv+=`<div>Kassa</div><div>${esc(cbx(d.cb).name)} — ${money(d.amount,cbx(d.cb).currency)}</div>`;
   if(d.toCb)kv+=`<div>Qabul qiluvchi</div><div>${esc(cbx(d.toCb).name)} — ${money(d.toAmount??d.amount,cbx(d.toCb).currency)}</div>`;
+  if(d.due)kv+=`<div>To'lash muddati</div><div>${d.dueDays} kun — ${fdt(d.due)} gacha</div>`;
   if(d.category)kv+=`<div>Turi</div><div>${esc(d.category)}</div>`;
   if(d.ref)kv+=`<div>Asos</div><div><a href="#" data-open="${d.ref}">${esc((D.byId[d.ref]||{}).no||'')}</a></div>`;
   if(d.note)kv+=`<div>Izoh</div><div>${esc(d.note)}</div>`;
@@ -1755,6 +1784,7 @@ function purchaseModal(src){
     <label class="field"><span>To'lov</span><select id="pMode"><option value="cash">Kassadan to'liq to'landi</option><option value="partial">Qisman to'landi, qolgani qarzga</option><option value="debt">To'lanmadi — ta'minotchiga qarz</option><option value="outside">Kassadan tashqari to'langan</option></select><small class="muted" id="pModeHint"></small></label>
     <label class="field" id="pCbBox"><span>Qaysi kassadan</span><select id="pCb"></select></label>
     <label class="field" id="pPaidBox"><span id="pPaidL">To'langan summa</span><input type="number" step="0.01" min="0" id="pPaid"></label>
+    <label class="field" id="pDueBox" hidden><span>Ta'minotchidan necha kunga olindi (to'lash muddati) *</span><input type="number" step="1" min="1" id="pDue" placeholder="Masalan: 30"><small class="muted" id="pDueHint"></small></label>
     <div class="full"><div class="muted" style="font-size:13px;margin-bottom:6px">Tovarlar (narx ${base()} da, bir dona uchun)</div><div class="lines-ed"></div></div>
     <label class="field full"><span>Izoh</span><input type="text" id="pNote" placeholder="Masalan: yuk raqami, konteyner"></label></div>
     <div class="total"><span class="muted">Jami</span><b id="pTot">${money(0)}</b></div>
@@ -1768,18 +1798,19 @@ function purchaseModal(src){
     $('#pTot',o).textContent=s};
   const syncP=()=>{const sid=$('#pSup',o).value;const mode=$('#pMode',o).value;const sel=$('#pCb',o);const prev=sel.value;
     sel.innerHTML=cbs.filter(c=>c.active!==false).map(c=>`<option value="${c.id}">${esc(c.name)} (${c.currency}) — ${money(D.cash[c.id]||0,c.currency)}</option>`).join('');if(prev&&S.cashboxes[prev])sel.value=prev;
-    $('#pCbBox',o).hidden=!(mode==='cash'||mode==='partial');$('#pPaidBox',o).hidden=mode!=='partial';
+    $('#pCbBox',o).hidden=!(mode==='cash'||mode==='partial');$('#pPaidBox',o).hidden=mode!=='partial';$('#pDueBox',o).hidden=!(mode==='debt'||mode==='partial');
     $('#pPaidL',o).textContent="To'langan summa ("+(cbx(sel.value).currency==='USD'?'$':"so'm")+')';
     $('#pModeHint',o).textContent={cash:"Summa tanlangan kassadan chiqim bo'ladi",partial:sid?"To'lanmagan qismi ta'minotchi balansiga qarz bo'lib yoziladi":"Qisman to'lov uchun ta'minotchini tanlang",debt:sid?"To'liq summa ta'minotchiga qarz bo'lib yoziladi"+(hasBal(sid)?' (hozir '+money(sbalOf(sid))+')':''):"Qarzga olish uchun ta'minotchini tanlang",outside:"Pul kassadan emas, boshqa yo'l bilan to'langan: kassa ham, ta'minotchi qarzi ham o'zgarmaydi"}[mode];upd()};
   syncP();$('#pSup',o).onchange=()=>{if(hasBal($('#pSup',o).value)&&$('#pMode',o).value==='cash')$('#pMode',o).value='debt';syncP()};
   if($('#pSupNew',o))$('#pSupNew',o).onclick=()=>quickSupplier(id=>{const c=S.contragents[id];const sel=$('#pSup',o);if(c&&![...sel.options].some(x=>x.value===id)){const op=document.createElement('option');op.value=id;op.textContent=c.name;sel.appendChild(op)}sel.value=id;sel.onchange()});
   $('#pMode',o).onchange=syncP;$('#pPaid',o).oninput=upd;
+  const dueH=()=>{$('#pDueHint',o).textContent=dueTxt($('#pDate',o).value,$('#pDue',o).value)};$('#pDue',o).oninput=dueH;$('#pDate',o).onchange=dueH;
   o.addEventListener('lines',upd);$('#pCb',o).onchange=syncP;
   if(src){
     const pays=src.payments||[];const cp0=pays.find(p=>p.cb!==BAL),bp0=pays.find(p=>p.cb===BAL);
     $('#pSup',o).value=src.cid||'';$('#pWh',o).value=src.wh||$('#pWh',o).value;$('#pDate',o).value=src.date;$('#pNote',o).value=src.note||'';
     $('#pMode',o).value=cp0&&bp0?'partial':cp0?'cash':bp0?'debt':'outside';
-    syncP();if(cp0&&S.cashboxes[cp0.cb])$('#pCb',o).value=cp0.cb;if(cp0&&bp0)$('#pPaid',o).value=cp0.amount;
+    syncP();if(cp0&&S.cashboxes[cp0.cb])$('#pCb',o).value=cp0.cb;if(cp0&&bp0)$('#pPaid',o).value=cp0.amount;if(src.dueDays)$('#pDue',o).value=src.dueDays;dueH();
     ed.lines.length=0;(src.lines||[]).forEach(l=>{const p=S.products[l.pid];ed.lines.push({pid:l.pid,label:p?p.name+(p.sku?' | '+p.sku:''):(l.name||''),qty:num(l.qty),price:num(l.price)})});
     if(!ed.lines.length)ed.lines.push({});ed.redraw();syncP()}
   $('#pOk',o).onclick=async()=>{
@@ -1791,6 +1822,8 @@ function purchaseModal(src){
     const qe=qtyErr(lines);if(qe){toast(qe,true);return}
     const total=tot();const mode=$('#pMode',o).value;const cb=$('#pCb',o).value;const sid=$('#pSup',o).value;
     if((mode==='debt'||mode==='partial')&&!sid){toast("Qarzga olish uchun ta'minotchini tanlang",true);return}
+    const dueDays=Math.floor(num($('#pDue',o).value));
+    if((mode==='debt'||mode==='partial')&&!(dueDays>0)){toast("Ta'minotchidan necha kunga olinganini (to'lash muddatini) kiriting",true);$('#pDue',o).focus();return}
     const amtIn=(cur,v)=>cur==='UZS'?Math.round(v):r2(v);let payments=[];
     if(mode==='cash'){if(!cb){toast('Kassani tanlang',true);return}const cur=cbx(cb).currency;payments=[{cb,amount:amtIn(cur,fromBase(total,cur)),currency:cur}]}
     if(mode==='partial'){if(!cb){toast('Kassani tanlang',true);return}const cur=cbx(cb).currency;const paid=num($('#pPaid',o).value);const pb=r2(toBase(paid,cur));
@@ -1805,6 +1838,7 @@ function purchaseModal(src){
       (src.lines||[]).forEach(l=>put(l.pid,src.wh,-num(l.qty)));lines.forEach(l=>put(l.pid,wh,l.qty));
       for(const [k,q] of Object.entries(net)){if(q>=0)continue;const [p,w]=k.split('|');const st=stockOf(p,w);if(st+q<-1e-9){toast(`Saqlab bo'lmaydi: "${pname(p)}" — «${wname(w)}» qoldig'i ${fmtN(st,0)} ta, o'zgarishdan keyin ${fmtN(st+q,0)} bo'lib qoladi`,true);return}}}
     const doc={kind:'doc',id:uid('d'),type:'purchase',no:nextNo('purchase'),date,createdAt:nowISO(),by:me().name,byId:me().id,wh,cid:sid,rate:rate(),lines,total,payments,payMode:mode,note:$('#pNote',o).value};
+    if(dueDays>0&&(mode==='debt'||mode==='partial')){doc.dueDays=dueDays;doc.due=addDaysStr(date,dueDays)}
     if(src)doc.editOf=src.id;
     o.close();
     try{
@@ -2734,7 +2768,7 @@ async function shopPayModal(x){
     try{const r=await rpc('hb_platform_pay',{p_shop:x.id,p_months:m,p_amount:a,p_note:$('#py_n',o).value.trim()});o.close();toast(`${x.name}: ${fdt(r.paidUntil)} gacha to'landi`);loadShops()}catch(e){}};
   $('#py_set',o).onclick=async()=>{const d=$('#py_d',o).value;if(!d){toast('Sanani tanlang',true);return}try{await rpc('hb_platform_until',{p_shop:x.id,p_until:d});o.close();toast('Muddat: '+fdt(d));loadShops()}catch(e){}};
   $('#py_inf',o).onclick=async()=>{if(!await confirmBox(`«${x.name}» uchun to'lov muddati cheksiz bo'lsinmi?`,'Cheksiz'))return;try{await rpc('hb_platform_until',{p_shop:x.id,p_until:null});o.close();toast('Muddat cheksiz');loadShops()}catch(e){}}}
-function boot(){compute();shell();render();rateWatch()}
+function boot(){compute();shell();render();rateWatch();setTimeout(dueToast,1500)}
 function authScreen(mode,msg,kind){
   mode=mode||'in';const ttl={in:'Kirish',up:"Ro'yxatdan o'tish",reset:'Parolni tiklash',newpw:'Yangi parol'}[mode];
   $('#root').innerHTML=`<div class="auth"><div class="box"><svg width="44" height="44" viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="lga" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A9AEB4"/><stop offset=".55" stop-color="#8B9097"/><stop offset="1" stop-color="#6B7178"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#lga)"/><g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9v21M10 13h20M14 30h12"/><path d="M10 13l-4 8h8zM30 13l-4 8h8z"/></g></svg>
