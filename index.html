@@ -1123,7 +1123,7 @@ function payModal(){
   const cli=t.cid?S.contragents[t.cid]:null;
   const o=modal(`<h2>To'lov — ${money(total)}</h2><p class="muted" style="margin-top:-8px">${base()==='USD'?'Kurs: '+fmtN(rate(),0)+" so'm · ≈ "+money(fromBase(total,'UZS'),'UZS'):''}</p>${err?`<div class="warnbox">${esc(err)}${t.lines.length?". To'lovni ko'rib chiqishingiz mumkin, lekin saqlab bo'lmaydi.":''}</div>`:''}
     <label class="debtbox ${cli?'':'off'}"><input type="checkbox" id="payDebt" ${cli?'':'disabled'} ${cli&&t.orderPay==='debt'?'checked':''}><span><b>Qarzga berish</b><br><span class="muted">${cli?`To'lanmagan qismi ${esc(cli.name)} balansiga qarz bo'lib yoziladi${hasBal(t.cid)?' (hozir '+money(balOf(t.cid))+')':''}. Hech narsa to'lanmasa, to'liq summa qarzga yoziladi.`:"Qarzga berish uchun sotuvda mijozni tanlang"}</span></span></label>
-    <label class="field" id="payDueBox" hidden><span>Mijozga necha kunga chiqarildi (to'lash muddati) *</span><input type="number" step="1" min="1" id="payDue" placeholder="Masalan: 7"><small class="muted" id="payDueHint"></small></label>
+    <label class="field" id="payDueBox" hidden><span>Mijozga necha kunga chiqarildi (to'lash muddati, ixtiyoriy)</span><input type="number" step="1" min="1" id="payDue" placeholder="Masalan: 7"><small class="muted" id="payDueHint"></small></label>
     <div class="paygrid" id="payGrid">${cbs.map(c=>`<div class="paycell"><label for="pay_${c.id}">${esc(c.name)}</label><div class="payin"><input type="number" step="${c.currency==='UZS'?1000:0.01}" min="0" id="pay_${c.id}" data-cb="${c.id}" placeholder="0"><span>${c.currency==='USD'?'$':"so'm"}</span></div><div class="payeq muted" data-eq="${c.id}">&nbsp;</div><button class="btn sm" data-fill="${c.id}">Qolganini shu yerga</button></div>`).join('')}</div>
     <div class="total"><span class="muted" id="payLeftL">Qoldi</span><b id="payLeft">${money(total)}</b></div>
     <div class="field"><span>Izoh</span><input type="text" id="payNote"></div>
@@ -1134,7 +1134,7 @@ function payModal(){
   const upd=()=>{
     $('#payDueBox',o).hidden=!needDue();$('#payDueHint',o).textContent=dueTxt(t.date||today(),$('#payDue',o).value);
     $$('[data-cb]',o).forEach(i=>{const c=cbx(i.dataset.cb);$(`[data-eq="${i.dataset.cb}"]`,o).textContent=num(i.value)&&c.currency!==base()?'≈ '+money(toBase(num(i.value),c.currency)):'\u00a0'});
-    if(debt()){const l=left();$('#payLeftL',o).textContent=l<-0.009?"Ortiqcha to'lov":'Qarzga yoziladi';$('#payLeft',o).textContent=money(Math.abs(l)<0.01?0:Math.abs(l));$('#payLeft',o).className=l>0.009||l<-0.009?'neg':'pos';$('#payOk',o).disabled=!!err||total<=0||l<-0.009||(l>0.009&&!(num($('#payDue',o).value)>=1));return}
+    if(debt()){const l=left();$('#payLeftL',o).textContent=l<-0.009?"Ortiqcha to'lov":'Qarzga yoziladi';$('#payLeft',o).textContent=money(Math.abs(l)<0.01?0:Math.abs(l));$('#payLeft',o).className=l>0.009||l<-0.009?'neg':'pos';$('#payOk',o).disabled=!!err||total<=0||l<-0.009;return}
     $('#payLeftL',o).textContent='Qoldi';
     const l=left();$('#payLeft',o).textContent=money(l);$('#payLeft',o).className=Math.abs(l)<0.01?'pos':l<0?'neg':'';$('#payOk',o).disabled=!!err||Math.abs(l)>=0.01||total<=0};
   $('#payDebt',o).onchange=()=>upd();$('#payDue',o).oninput=upd;
@@ -1145,7 +1145,7 @@ function payModal(){
     const lf=left();
     const payments=$$('[data-cb]',o).filter(i=>num(i.value)>0).map(i=>({cb:i.dataset.cb,amount:num(i.value),currency:cbx(i.dataset.cb).currency}));
     let dueDays=0;
-    if(debt()&&lf>0.009){dueDays=Math.floor(num($('#payDue',o).value));if(!(dueDays>0)){toast("Mijozga necha kunga chiqarilganini (to'lash muddatini) kiriting",true);$('#payDue',o).focus();return}payments.push({cb:BAL,amount:r2(lf),currency:base()})}
+    if(debt()&&lf>0.009){dueDays=Math.floor(num($('#payDue',o).value));payments.push({cb:BAL,amount:r2(lf),currency:base()})}
     const note=$('#payNote',o).value;
     o.close();
     await commitSale(t,cli,total,payments,note,undefined,dueDays);
@@ -1174,7 +1174,7 @@ async function commitSale(t,cli,total,payments,note,showReceipt,dueDays){
 function askDue(title,label,date){return new Promise(res=>{let done=false;const fin=v=>{if(!done){done=true;res(v)}};
   const o=modal(`<h2>${esc(title)}</h2><label class="field full"><span>${esc(label)}</span><input type="number" step="1" min="1" id="adDays" placeholder="Masalan: 7"><small class="muted" id="adHint"></small></label><div class="mfoot"><button class="btn" data-close>Ortga</button><button class="btn pri" id="adOk">Qarzga yozish</button></div>`);
   const i=$('#adDays',o);setTimeout(()=>i.focus(),50);i.oninput=()=>{$('#adHint',o).textContent=dueTxt(date,i.value)};
-  const ok=()=>{const n=Math.floor(num(i.value));if(!(n>0)){toast("To'lash muddatini (kun) kiriting",true);i.focus();return}fin(n);o.close()};
+  const ok=()=>{const n=Math.floor(num(i.value));fin(n>0?n:-1);o.close()};
   $('#adOk',o).onclick=ok;i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ok()}};
   const mo=new MutationObserver(()=>{if(!document.body.contains(o)){mo.disconnect();fin(0)}});mo.observe(document.body,{childList:true,subtree:true})})}
 /* Mijoz tanlangan bo'lsa — to'lov oynasisiz, to'liq summa shu mijozga qarzga yoziladi */
@@ -1186,7 +1186,7 @@ async function debtSaleForClient(){
   if(err){toast(err,true);return}
   const total=r2(t.lines.reduce((a,l)=>a+lineSum(l),0));
   if(total<=0){toast("Jami summa 0 — sotuvni saqlab bo'lmaydi",true);return}
-  const dd=await askDue(`${cli.name} ga ${money(total)} qarzga yoziladi`,"Mijozga necha kunga chiqarildi (to'lash muddati) *",t.date||today());
+  const dd=await askDue(`${cli.name} ga ${money(total)} qarzga yoziladi`,"Mijozga necha kunga chiqarildi (to'lash muddati, ixtiyoriy)",t.date||today());
   if(!dd)return;
   await commitSale(t,cli,total,[{cb:BAL,amount:total,currency:base()}],t.note||'',false,dd);
 }
@@ -1784,7 +1784,7 @@ function purchaseModal(src){
     <label class="field"><span>To'lov</span><select id="pMode"><option value="cash">Kassadan to'liq to'landi</option><option value="partial">Qisman to'landi, qolgani qarzga</option><option value="debt">To'lanmadi — ta'minotchiga qarz</option><option value="outside">Kassadan tashqari to'langan</option></select><small class="muted" id="pModeHint"></small></label>
     <label class="field" id="pCbBox"><span>Qaysi kassadan</span><select id="pCb"></select></label>
     <label class="field" id="pPaidBox"><span id="pPaidL">To'langan summa</span><input type="number" step="0.01" min="0" id="pPaid"></label>
-    <label class="field" id="pDueBox" hidden><span>Ta'minotchidan necha kunga olindi (to'lash muddati) *</span><input type="number" step="1" min="1" id="pDue" placeholder="Masalan: 30"><small class="muted" id="pDueHint"></small></label>
+    <label class="field" id="pDueBox" hidden><span>Ta'minotchidan necha kunga olindi (to'lash muddati, ixtiyoriy)</span><input type="number" step="1" min="1" id="pDue" placeholder="Masalan: 30"><small class="muted" id="pDueHint"></small></label>
     <div class="full"><div class="muted" style="font-size:13px;margin-bottom:6px">Tovarlar (narx ${base()} da, bir dona uchun)</div><div class="lines-ed"></div></div>
     <label class="field full"><span>Izoh</span><input type="text" id="pNote" placeholder="Masalan: yuk raqami, konteyner"></label></div>
     <div class="total"><span class="muted">Jami</span><b id="pTot">${money(0)}</b></div>
@@ -1823,7 +1823,6 @@ function purchaseModal(src){
     const total=tot();const mode=$('#pMode',o).value;const cb=$('#pCb',o).value;const sid=$('#pSup',o).value;
     if((mode==='debt'||mode==='partial')&&!sid){toast("Qarzga olish uchun ta'minotchini tanlang",true);return}
     const dueDays=Math.floor(num($('#pDue',o).value));
-    if((mode==='debt'||mode==='partial')&&!(dueDays>0)){toast("Ta'minotchidan necha kunga olinganini (to'lash muddatini) kiriting",true);$('#pDue',o).focus();return}
     const amtIn=(cur,v)=>cur==='UZS'?Math.round(v):r2(v);let payments=[];
     if(mode==='cash'){if(!cb){toast('Kassani tanlang',true);return}const cur=cbx(cb).currency;payments=[{cb,amount:amtIn(cur,fromBase(total,cur)),currency:cur}]}
     if(mode==='partial'){if(!cb){toast('Kassani tanlang',true);return}const cur=cbx(cb).currency;const paid=num($('#pPaid',o).value);const pb=r2(toBase(paid,cur));
