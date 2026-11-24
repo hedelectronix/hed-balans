@@ -554,12 +554,14 @@ function me(){return ME?{...ME,...(S.employees[ME.id]||{}),role:ME.role,id:ME.id
 const isAdmin=()=>me().role==='admin';
 /* Do'kon egasi — do'konni ochgan akkaunt (server hb_load'da me.owner=true qaytaradi yoki shop.ownerId). Oddiy administratorlar egasi emas. */
 const isOwner=()=>{const m=me();return !!(m.owner===true||(SHOP&&SHOP.ownerId&&SHOP.ownerId===m.id))};
-function canSee(p){const a=ROLE_PAGES[me().role];return !a||a.includes(p)}
+/* Sotuvchi = kassir roli + «Sotuvchi» lavozimi: faqat sotuv qiladi */
+const isSeller=()=>{const m=me();return m.role==='kassir'&&empTitle(m)==='Sotuvchi'};
+function canSee(p){if(isSeller())return p==='pos'||p==='sales';const a=ROLE_PAGES[me().role];return !a||a.includes(p)}
 /* Kirish — Supabase akkaunti; rol serverda tekshiriladi */
 const locked=()=>false;
 function setUnlocked(){}
 const PERM={sale:['admin','kassir'],return:['admin','kassir'],cash:['admin','kassir'],dayclose:['admin','kassir'],contragent:['admin','kassir','omborchi'],purchase:['admin','omborchi'],stock:['admin','omborchi'],product:['admin','omborchi'],expense:['admin'],adjust:['admin'],admin:['admin']};
-function allow(a,silent){const m=me();const ok=(PERM[a]||['admin']).includes(m.role);if(!ok&&!silent)toast(`Bu amal uchun vakolatingiz yo'q (${ROLES[m.role]||m.role})`,true);return ok}
+function allow(a,silent){const m=me();const ok=(PERM[a]||['admin']).includes(m.role)&&(!isSeller()||a==='sale'||a==='contragent');if(!ok&&!silent)toast(`Bu amal uchun vakolatingiz yo'q (${ROLES[m.role]||m.role})`,true);return ok}
 async function signOut(){try{await SB.auth.signOut()}catch(e){}try{localStorage.removeItem('hb_pos')}catch(e){}location.reload()}
 
 /* ============ navigation ============ */
@@ -602,7 +604,7 @@ function refresh(){compute();clearTimeout(rT);rT=setTimeout(()=>{if(busy()){dirt
 function go(p){page=p;lsSet('hb_page',p);ui={};render();$('#main').scrollTop=0}
 function render(){
   dirty=false;
-  if(!canSee(page))page='dash';
+  if(!canSee(page))page=canSee('dash')?'dash':'pos';
   $('#coName').textContent=(S.config&&S.config.company)||'';
   $('#nav').innerHTML=PAGES.map(([g,items],gi)=>{const vis=items.filter(i=>canSee(i[0])&&i[0]!=='pos');return vis.length?`<span class="ngroup" title="${g}"></span>`+vis.map(([k,t])=>`<a tabindex="0" data-p="${k}" data-g="${gi}" class="${k===page||(k==='sales'&&page==='pos')?'on':''}">${esc(SHORT[k]||t)}${(k==='sales'||k==='purchases'||false)?'<span class="car">▾</span>':''}</a>`).join(''):''}).join('');
   const on=$('#nav a.on');if(on)on.scrollIntoView({block:'nearest',inline:'nearest'});
